@@ -7,85 +7,41 @@ Created on Thu Nov 15 15:37:26 2018
 
 @author: Chengmo
 """
-import tensorflow as tf
-import tensorflow.contrib.eager as tfe
 import numpy as np
 import os, tqdm
-from datetime import datetime
+import tensorflow as tf
+#import tensorflow.contrib.eager as tfe
+#tfe.enable_eager_execution()
 
-from PFnet import PFnet
-from DataProcess import LabelData,MapData
 from argument import parse_args
+from DataProcess import LabelData,MapData
+from PFnet import PFnetClass
+
 """使用Tensorflow的eager模式方便调试"""
-tfe.enable_eager_execution()
-
-"--------------------------------超参数-------------------------------------" 
-DATA_PATH = '/home/silence/PF/data'
-MAP_PATH =  '/home/silence/PF/map.jpg'
-BATCH_SIZE = 5
-TIME_STEP = 10
-TRAIN_DATA_RATIO = 0.9
-READ_ALL = True
-EPOCHS = 1
-PARTICAL_NUMS = 10
-LEARNING_RATE = 0.006
-
-def validation(sess, brain, num_samples, params):
-    """
-    Run validation
-    :param sess: tensorflow session
-    :param brain: network object that provides loss and update ops, and functions to save and restore the hidden state.
-    :param num_samples: int, number of samples in the validation set.
-    :param params: parsed arguments
-    :return: validation loss, averaged over the validation set
-    """
-
-    fix_seed = (params.validseed is not None and params.validseed >= 0)
-    if fix_seed:
-        np_random_state = np.random.get_state()
-        np.random.seed(params.validseed)
-        tf.set_random_seed(params.validseed)
-
-    saved_state = brain.save_state(sess)
-
-    total_loss = 0.0
-    try:
-        for eval_i in tqdm.tqdm(range(num_samples), desc="Validation"):
-            loss, _ = sess.run([brain.valid_loss_op, brain.update_state_op])
-            total_loss += loss
-
-        print ("Validation loss = %f"%(total_loss/num_samples))
-
-    except tf.errors.OutOfRangeError:
-        print ("No more samples for evaluation. This should not happen")
-        raise
-
-    brain.load_state(sess, saved_state)
-
-    # restore seed
-    if fix_seed:
-        np.random.set_state(np_random_state)
-        tf.set_random_seed(np.random.randint(999999))  # cannot save tf seed, so generate random one from numpy
-
-    return total_loss
 
 
 def run_training(params):
     """ Run training with the parsed arguments """
-
+    #各个数据读取类初始化
+    trainData = LabelData(params.train_files_path,params.train_ration,params.read_all)
+    testData = LabelData(params.test_files_path,params.train_ration,params.read_all)
+    mapData = MapData(params.map_files_path)
+    
     with tf.Graph().as_default():
         if params.seed is not None:
             tf.set_random_seed(params.seed)
-
+        map_data = mapData.getMap()    
         # training data and network
         with tf.variable_scope(tf.get_variable_scope(), reuse=False):
-            train_data, num_train_samples = get_dataflow(params.trainfiles, params, is_training=True)
-            train_brain = PFnet(inputs=train_data[1:], labels=train_data[0], params=params, is_training=True)
+            num_train_samples = trainData.getBatchNums(params.time_step)
+            train_data = trainData.getData(params.epochs)
+            train_brain = PFnetClass(map_data,inputs=train_data[1:], labels=train_data[0], params=params, is_training=True)
 
         # test data and network
         with tf.variable_scope(tf.get_variable_scope(), reuse=True):
-            test_data, num_test_samples = get_dataflow(params.testfiles, params, is_training=False)
-            test_brain = PFnet(inputs=test_data[1:], labels=test_data[0], params=params, is_training=False)
+            num_test_samples = testData.getBatchNums(params.time_step)
+            test_data = testData.getData(params.epochs)
+            test_brain = PFnetClass(map_data,inputs=test_data[1:], labels=test_data[0], params=params, is_training=False)
 
         # Add the variable initializer Op.
         init_op = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
@@ -160,11 +116,45 @@ def run_training(params):
 
         print ("Training done. Model is saved to %s"%(params.logpath))
 
+def validation(sess, brain, num_samples, params):
+    """
+    Run validation
+    :param sess: tensorflow session
+    :param brain: network object that provides loss and update ops, and functions to save and restore the hidden state.
+    :param num_samples: int, number of samples in the validation set.
+    :param params: parsed arguments
+    :return: validation loss, averaged over the validation set
+    """
+
+    fix_seed = (params.validseed is not None and params.validseed >= 0)
+    if fix_seed:
+        np_random_state = np.random.get_state()
+        np.random.seed(params.validseed)
+        tf.set_random_seed(params.validseed)
+
+    saved_state = brain.save_state(sess)
+
+    total_loss = 0.0
+    try:
+        for eval_i in tqdm.tqdm(range(num_samples), desc="Validation"):
+            loss, _ = sess.run([brain.valid_loss_op, brain.update_state_op])
+            total_loss += loss
+
+        print ("Validation loss = %f"%(total_loss/num_samples))
+
+    except tf.errors.OutOfRangeError:
+        print ("No more samples for evaluation. This should not happen")
+        raise
+
+    brain.load_state(sess, saved_state)
+
+    # restore seed
+    if fix_seed:
+        np.random.set_state(np_random_state)
+        tf.set_random_seed(np.random.randint(999999))  # cannot save tf seed, so generate random one from numpy
+
+    return total_loss
 
 if __name__ == '__main__':
     params = parse_args()
-
-    params.logpath = os.path.join(params.logpath, "log-" + datetime.now().strftime('%m%d-%H-%M-%S'))
-    os.mkdir(params.logpath)
-
     run_training(params)

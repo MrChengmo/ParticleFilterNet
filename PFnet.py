@@ -10,9 +10,9 @@ Created on Wed Nov 21 19:29:10 2018
 import numpy as np
 import tensorflow as tf
 import tensorflow.contrib.eager as tfe
-from PFcell import PFCell
+from PFcell import PFCellClass
 
-class PFnet(object):
+class PFnetClass(object):
     """
     Build PF-net by PFCell ,defines losses and training ops 
     """
@@ -105,15 +105,15 @@ class PFnet(object):
                         false_fn = lambda:tuple(self._hidden_states))
         
         with tf.variable_scope("rnn"):
-            init_cell = PFCell(map_data= tf.zeros((1,1,1,map_shape),dtype=map_data.dtype),
-                               self._parameters,batch_size=1,particle_nums=1)
+            init_cell = PFCellClass(map_data= tf.zeros((1,1,1,map_shape),dtype=map_data.dtype),
+                               paramters=self._parameters,batch_size=1,particle_nums=1)
             init_cell(tf.zeros([1,2],dtype=float),#inputs
                     (tf.zeros([1,1,2],dtype=init_particle_states.dtype),
                      tf.zeros([1,1],dtype=init_particle_weights.dtype))#state
                     )
             
             tf.get_variable_scope().reuse_variables()
-            cell_func = PFCell(map_data=map_data,paramters=self._parameters,
+            cell_func = PFCellClass(map_data=map_data,paramters=self._parameters,
                                batch_size=batch_size,particle_nums=particle_nums)
             
             outputs,states = tf.nn.dynamic_rnn(cell = cell_func,

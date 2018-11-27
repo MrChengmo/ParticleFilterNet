@@ -135,9 +135,8 @@ LabelData单元测试模块，测试内容：
         
 class MapData:
     """读取地图数据，并为未来复杂地图操作留下接口"""
-    def __init__(self,path,size):
+    def __init__(self,path):
         self._origiin_path = path
-        self._size = size
         
     def getMap(self):
         file = tf.read_file(self._origiin_path)

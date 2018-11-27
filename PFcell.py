@@ -9,13 +9,14 @@ Created on Tue Nov 20 12:50:12 2018
 """
 import numpy as np
 import tensorflow as tf
-import tensorflow.contrib.eager as tfe
-from tensorflow.nn.rnn_cell import RNNCell as rnn
+#import tensorflow.contrib.eager as tfe
+from tensorflow.contrib.rnn import RNNCell as rnn
+#from tensorflow.contrib.nn.rnn_cell import RNNCell as rnn
 from tensorflow.contrib import image
 from tensorflow.python.ops import math_ops
-tfe.enable_eager_execution()
+#tfe.enable_eager_execution()
 
-class PFCell(rnn):
+class PFCellClass(rnn):
     """
     PF-NET核心模块，使用RNN结构实现粒子滤波过程，RNN的隐状态对应于粒子集
     转移，观测及重采样模型被设计为可微的神经网络单元
@@ -25,7 +26,7 @@ class PFCell(rnn):
     Cell outputs: particle_states,particle_weights
     """   
     def __init__(self,map_data,paramters,batch_size,particle_nums):
-        super(PFCell,self).__init__()
+        super(PFCellClass,self).__init__()
         self._map = map_data
         self._parameters = paramters
         self._batch_size = batch_size

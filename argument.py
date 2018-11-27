@@ -6,59 +6,39 @@ Created on Mon Nov 26 15:05:31 2018
 
 @author: Silence
 """
-
 import configargparse
 import numpy as np
 
 
 def parse_args(args=None):
-    """
-    Parse command line arguments
-    :param args: command line arguments or None (default)
-    :return: dictionary of parameters
-    """
-
+    "--------------------------------超参数-------------------------------------" 
     p = configargparse.ArgParser(default_config_files=[])
-
-    p.add('-c', '--config', required=True, is_config_file=True,
-          help='Config file. use ./config/train.conf for training')
-
-    p.add('--trainfiles', nargs='*', help='Data file(s) for training (tfrecord).')
-    p.add('--testfiles', nargs='*', help='Data file(s) for validation or evaluation (tfrecord).')
-
+    
+    p.add('--train_files_path',default='/home/silence/PF/data', help='Data file(s) for training (tfrecord).')
+    p.add('--test_files_path',default='/home/silence/PF/data', help='Data file(s) for validation or evaluation (tfrecord).')
+    p.add('--map_files_path',default ='/home/sileince/PF/map.jpg',help = 'Map file(s) for training and testing')
+    p.add('--read_all',type=bool,default = 'True',help = 'wether read all folder and file in root path')
+    p.add('--train_ration',type = float,default = 0.9,help = 'the ratio of files in all file which used to train model')
     # input configuration
-    p.add('--obsmode', type=str, default='rgb',
-          help='Observation input type. Possible values: rgb / depth / rgb-depth / vrf.')
-    p.add('--mapmode', type=str, default='wall',
-          help='Map input type with different (semantic) channels. ' +
-               'Possible values: wall / wall-door / wall-roomtype / wall-door-roomtype')
-    p.add('--map_pixel_in_meters', type=float, default=0.02,
-          help='The width (and height) of a pixel of the map in meters. Defaults to 0.02 for House3D data.')
-
-    p.add('--init_particles_distr', type=str, default='tracking',
-          help='Distribution of initial particles. Possible values: tracking / one-room / two-rooms / all-rooms')
-    p.add('--init_particles_std', nargs='*', default=["0.3", "0.523599"],  # tracking setting, 30cm, 30deg
-          help='Standard deviations for generated initial particles. Only applies to the tracking setting.' +
-               'Expects two float values: translation std (meters), rotation std (radians)')
-    p.add('--trajlen', type=int, default=24,
-          help='Length of trajectories. Assumes lower or equal to the trajectory length in the input data.')
+    p.add('--map_pixel_para', type=float, default=1,
+          help='The width (and height) of a pixel of the map in meters.')
+    p.add('--particle_map_shape', nargs = '*',default = ["100","100"],help = 'the shape of particle map')
+    p.add('--particle_map_length',type=int,default=100,help='the length of particle map')
 
     # PF-net configuration
-    p.add('--num_particles', type=int, default=30, help='Number of particles in PF-net.')
-    p.add('--resample', type=str, default='false',
+    p.add('--particle_nums', type=int, default=30, help='Number of particles in PF-net.')
+    p.add('--resample', type=str, default='true',
           help='Resample particles in PF-net. Possible values: true / false.')
-    p.add('--alpha_resample_ratio', type=float, default=1.0,
+    p.add('--resample_para', type=float, default=1.0,
           help='Trade-off parameter for soft-resampling in PF-net. Only effective if resample == true. '
                'Assumes values 0.0 < alpha <= 1.0. Alpha equal to 1.0 corresponds to hard-resampling.')
-    p.add('--transition_std', nargs='*', default=["0.0", "0.0"],
+    p.add('--transition_para', nargs='*', default=["0.0", "0.0"],
                 help='Standard deviations for transition model. Expects two float values: ' +
                      'translation std (meters), rotatation std (radians). Defaults to zeros.')
 
     # training configuration
-    p.add('--batchsize', type=int, default=24, help='Minibatch size for training. Must be 1 for evaluation.')
-    p.add('--bptt_steps', type=int, default=4,
-          help='Number of backpropagation steps for training with backpropagation through time (BPTT). '
-               'Assumed to be an integer divisor of the trajectory length (--trajlen).')
+    p.add('--batchsize', type=int, default=5, help='Minibatch size for training. Must be 1 for evaluation.')
+    p.add('--time_step', type=int, default=10, help='Number of foot step which one traj has.')
     p.add('--learningrate', type=float, default=0.0025, help='Initial learning rate for training.')
     p.add('--l2scale', type=float, default=4e-6, help='Scaling term for the L2 regularization loss.')
     p.add('--epochs', metavar='epochs', type=int, default=1, help='Number of epochs for training.')
@@ -81,8 +61,7 @@ def parse_args(args=None):
         np.random.seed(params.seed)
 
     # convert multi-input fileds to numpy arrays
-    params.transition_std = np.array(params.transition_std, np.float32)
-    params.init_particles_std = np.array(params.init_particles_std, np.float32)
+    params.transition_para = np.array(params.transition_para, np.float32)
 
     # convert boolean fields
     if params.resample not in ['false', 'true']:
