@@ -16,13 +16,13 @@ def parse_args(args=None):
     
     p.add('--train_files_path',default='/home/silence/PF/data', help='Data file(s) for training (tfrecord).')
     p.add('--test_files_path',default='/home/silence/PF/data', help='Data file(s) for validation or evaluation (tfrecord).')
-    p.add('--map_files_path',default ='/home/sileince/PF/map.jpg',help = 'Map file(s) for training and testing')
+    p.add('--map_files_path',default ='/home/silence/PF/map.jpg',help = 'Map file(s) for training and testing')
     p.add('--read_all',type=bool,default = 'True',help = 'wether read all folder and file in root path')
     p.add('--train_ration',type = float,default = 0.9,help = 'the ratio of files in all file which used to train model')
     # input configuration
     p.add('--map_pixel_para', type=float, default=1,
           help='The width (and height) of a pixel of the map in meters.')
-    p.add('--particle_map_shape', nargs = '*',default = ["100","100"],help = 'the shape of particle map')
+    p.add('--particle_map_shape', nargs = '*',default = [100,100],help = 'the shape of particle map')
     p.add('--particle_map_length',type=int,default=100,help='the length of particle map')
 
     # PF-net configuration

@@ -10,11 +10,10 @@ Created on Thu Nov 15 15:37:26 2018
 import numpy as np
 import os, tqdm
 import tensorflow as tf
-#import tensorflow.contrib.eager as tfe
-#tfe.enable_eager_execution()
-
+# tf.enable_eager_execution()
+import matplotlib.pyplot as plt
 from argument import parse_args
-from DataProcess import LabelData,MapData
+from DataProcess import LabelData, MapData
 from PFnet import PFnetClass
 
 """使用Tensorflow的eager模式方便调试"""
@@ -22,46 +21,46 @@ from PFnet import PFnetClass
 
 def run_training(params):
     """ Run training with the parsed arguments """
-    #各个数据读取类初始化
-    trainData = LabelData(params.train_files_path,params.train_ration,params.read_all)
-    testData = LabelData(params.test_files_path,params.train_ration,params.read_all)
-    mapData = MapData(params.map_files_path)
-    
     with tf.Graph().as_default():
+        # 各个数据读取类初始化
+        trainData = LabelData(params.train_files_path, params.train_ration, params.read_all)
+        testData = LabelData(params.test_files_path, params.train_ration, params.read_all)
+        mapData = MapData(params.map_files_path)
+
+        num_train_samples = trainData.getBatchNums(params.time_step)
+        train_data = trainData.getData(params.epochs)
+        train_data = train_data.batch(params.batchsize, drop_remainder=True)
+        train_iter = train_data.make_one_shot_iterator()
+        inputs = train_iter.get_next()
+
+        num_test_samples = testData.getBatchNums(params.time_step)
+        test_data = testData.getData(params.epochs)
+        test_data = test_data.batch(params.batchsize, drop_remainder=True)
+        test_iter = test_data.make_one_shot_iterator()
+        test_inputs = test_iter.get_next()
+
+        map_data = mapData.getMap()
+
         if params.seed is not None:
             tf.set_random_seed(params.seed)
-        map_data = mapData.getMap()    
-        # training data and network
-        with tf.variable_scope(tf.get_variable_scope(), reuse=False):
-            num_train_samples = trainData.getBatchNums(params.time_step)
-            train_data = trainData.getData(params.epochs)
-            train_brain = PFnetClass(map_data,inputs=train_data[1:], labels=train_data[0], params=params, is_training=True)
-
-        # test data and network
-        with tf.variable_scope(tf.get_variable_scope(), reuse=True):
-            num_test_samples = testData.getBatchNums(params.time_step)
-            test_data = testData.getData(params.epochs)
-            test_brain = PFnetClass(map_data,inputs=test_data[1:], labels=test_data[0], params=params, is_training=False)
 
         # Add the variable initializer Op.
         init_op = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
 
-        # Create a saver for writing training checkpoints.
-        saver = tf.train.Saver(var_list=tf.trainable_variables(), max_to_keep=3)
-
-        # Create a session for running Ops on the Graph.
-        os.environ["CUDA_VISIBLE_DEVICES"] = "%d"%int(params.gpu)
-        sess_config = tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)
-        sess_config.gpu_options.allow_growth = True
-
         # training session
-        with tf.Session(config=sess_config) as sess:
+        with tf.Session() as sess:
             sess.run(init_op)
+            #map_data = sess.run(map_data)
+            # training data and network
+            with tf.variable_scope(tf.get_variable_scope(), reuse=False):
+                train_brain = PFnetClass(map_data, inputs=inputs[0], labels=inputs[1], parameters=params,
+                                         is_training=True)
 
-            # load model from checkpoint file
-            if params.load:
-                print("Loading model from " + params.load)
-                saver.restore(sess, params.load)
+            # test data and network
+            with tf.variable_scope(tf.get_variable_scope(), reuse=True):
+
+                test_brain = PFnetClass(map_data, inputs=test_inputs[0], labels=test_inputs[1], parameters=params,
+                                        is_training=False)
 
             coord = tf.train.Coordinator()
             threads = tf.train.start_queue_runners(coord=coord)
@@ -83,14 +82,13 @@ def run_training(params):
 
                         # print accumulated loss after every few hundred steps
                         if step_i > 0 and (step_i % 500) == 0:
-                            tqdm.tqdm.write("Epoch %d, step %d. Training loss = %f" % (epoch_i + 1, step_i, periodic_loss / 500.0))
+                            tqdm.tqdm.write(
+                                "Epoch %d, step %d. Training loss = %f" % (epoch_i + 1, step_i, periodic_loss / 500.0))
                             periodic_loss = 0.0
 
                     # print the avarage loss over the epoch
-                    tqdm.tqdm.write("Epoch %d done. Average training loss = %f" % (epoch_i + 1, epoch_loss / num_train_samples))
-
-                    # save model, validate and decrease learning rate after each epoch
-                    saver.save(sess, os.path.join(params.logpath, 'model.chk'), global_step=epoch_i + 1)
+                    tqdm.tqdm.write(
+                        "Epoch %d done. Average training loss = %f" % (epoch_i + 1, epoch_loss / num_train_samples))
 
                     # run validation
                     validation(sess, test_brain, num_samples=num_test_samples, params=params)
@@ -98,7 +96,6 @@ def run_training(params):
                     #  decay learning rate
                     if epoch_i + 1 % params.decaystep == 0:
                         decay_step += 1
-                        #current_global_step = sess.run(tf.assign(train_brain.global_step_op, decay_step))
                         current_learning_rate = sess.run(train_brain.learning_rate_op)
                         tqdm.tqdm.write("Decreased learning rate to %f." % (current_learning_rate))
 
@@ -108,13 +105,10 @@ def run_training(params):
             except tf.errors.OutOfRangeError:
                 print("data exhausted")
 
-            finally:
-                saver.save(sess, os.path.join(params.logpath, 'final.chk'))  # dont pass global step
-                coord.request_stop()
-
             coord.join(threads)
 
-        print ("Training done. Model is saved to %s"%(params.logpath))
+        print("Training done. Model is saved to %s" % (params.logpath))
+
 
 def validation(sess, brain, num_samples, params):
     """
@@ -140,10 +134,10 @@ def validation(sess, brain, num_samples, params):
             loss, _ = sess.run([brain.valid_loss_op, brain.update_state_op])
             total_loss += loss
 
-        print ("Validation loss = %f"%(total_loss/num_samples))
+        print("Validation loss = %f" % (total_loss / num_samples))
 
     except tf.errors.OutOfRangeError:
-        print ("No more samples for evaluation. This should not happen")
+        print("No more samples for evaluation. This should not happen")
         raise
 
     brain.load_state(sess, saved_state)
@@ -154,6 +148,7 @@ def validation(sess, brain, num_samples, params):
         tf.set_random_seed(np.random.randint(999999))  # cannot save tf seed, so generate random one from numpy
 
     return total_loss
+
 
 if __name__ == '__main__':
     params = parse_args()
