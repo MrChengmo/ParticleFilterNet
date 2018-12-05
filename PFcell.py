@@ -31,8 +31,8 @@ class PFCellClass(rnn):
         self._parameters = paramters
         self._batch_size = batch_size
         self._particle_nums = particle_nums
-        self._states_shape = (batch_size, particle_nums, 3)
-        self._weights_shape = (batch_size, particle_nums, 1)
+        self._states_shape = (batch_size, particle_nums, 2)
+        self._weights_shape = (batch_size, particle_nums)
 
     @property
     def state_size(self):
@@ -56,7 +56,10 @@ class PFCellClass(rnn):
             # resample particles
             new_states, new_weights = self.resampleModel(particle_states, particle_weights,
                                                          resample_para=self._parameters.resample_para)
-        return new_states, new_weights
+
+            output = new_states,new_weights
+            state = new_states,new_weights
+        return output,state
 
     def transitionModel(self, particle_states, ins):
         """
@@ -105,7 +108,7 @@ class PFCellClass(rnn):
                                                                       axis=-1, keep_dims=True)
 
             uniform_weights = tf.constant(-np.log(num_particles),
-                                          shape=(batch_size, num_particles), dtype=tf.float32)
+                                          shape=(batch_size, num_particles), dtype=tf.float64)
 
             # build sampling distribution, q(s), and update particle weights
             if resample_para < 1.0:
@@ -134,7 +137,7 @@ class PFCellClass(rnn):
             particle_weights = tf.reshape(particle_weights, (batch_size * num_particles,))
             particle_weights = tf.gather(particle_weights, indices=indices, axis=0)  # (batch_size, num_particles,)
 
-        return particle_states, particle_weights
+        return particle_states,particle_weights
 
     def mapTransform(self, map_data, old_particle_states, new_particle_states):
         """
@@ -151,7 +154,7 @@ class PFCellClass(rnn):
             particle_map_list.append(self.mapCut(map_data, old_flat_states[i], new_flat_states[i]))
         particle_map = tf.reshape(particle_map_list, [batch_size, num_particles,
                                                       self._parameters.particle_map_shape[0],
-                                                      self._parameters.particle_map_shape[1], 3)
+                                                      self._parameters.particle_map_shape[1], 3])
         return particle_map
 
     def mapCut(self, map_data, old_partcile_states, new_particle_states):
@@ -187,8 +190,6 @@ class PFCellClass(rnn):
             ]
             x = tf.concat(convs, axis=-1)
             x = tf.contrib.layers.layer_norm(x, activation_fn=tf.nn.relu)
-            print(x.get_shape().as_list())
-
             x = tf.layers.max_pooling2d(x, pool_size=(3, 3), strides=(2, 2), padding="same")
 
             convs = [
@@ -201,11 +202,8 @@ class PFCellClass(rnn):
             ]
             x = tf.concat(convs, axis=-1)
             x = tf.contrib.layers.layer_norm(x, activation_fn=tf.nn.relu)
-            print(x.get_shape().as_list())
             x = tf.layers.max_pooling2d(x, pool_size=(3, 3), strides=(2, 2), padding="valid")
             x = dense_layer(1, activation=None, use_bias=True, name='fc1')(x)
-            print(x.get_shape().as_list())
-
         """
         with tf.variable_scope("fc"):
 

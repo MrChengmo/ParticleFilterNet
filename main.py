@@ -44,24 +44,25 @@ def run_training(params):
         if params.seed is not None:
             tf.set_random_seed(params.seed)
 
+        # training data and network
+        with tf.variable_scope(tf.get_variable_scope(), reuse=False):
+            train_brain = PFnetClass(map_data, inputs=inputs[0], labels=inputs[1], parameters=params,is_training=True)
+        print("successful train_op")
+        # test data and network
+        with tf.variable_scope(tf.get_variable_scope(), reuse=True):
+            test_brain = PFnetClass(map_data, inputs=test_inputs[0], labels=test_inputs[1], parameters=params,is_training=False)
+        print("successful test_op")
         # Add the variable initializer Op.
         init_op = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
 
         # training session
-        with tf.Session() as sess:
+        config = tf.ConfigProto(allow_soft_placement=True)
+        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.7)
+        config.gpu_options.allow_growth = True
+
+        with tf.Session(config=config) as sess:
             sess.run(init_op)
-            #map_data = sess.run(map_data)
-            # training data and network
-            with tf.variable_scope(tf.get_variable_scope(), reuse=False):
-                train_brain = PFnetClass(map_data, inputs=inputs[0], labels=inputs[1], parameters=params,
-                                         is_training=True)
-
-            # test data and network
-            with tf.variable_scope(tf.get_variable_scope(), reuse=True):
-
-                test_brain = PFnetClass(map_data, inputs=test_inputs[0], labels=test_inputs[1], parameters=params,
-                                        is_training=False)
-
+            print("successful init_op")
             coord = tf.train.Coordinator()
             threads = tf.train.start_queue_runners(coord=coord)
 
@@ -72,14 +73,14 @@ def run_training(params):
                 for epoch_i in range(params.epochs):
                     epoch_loss = 0.0
                     periodic_loss = 0.0
-
+                    print("successful epoch")
                     # run training over all samples in an epoch
                     for step_i in tqdm.tqdm(range(num_train_samples)):
-                        _, loss, _ = sess.run([train_brain.train_op, train_brain.train_loss_op,
-                                               train_brain.update_state_op])
+                        _, loss, _ = sess.run([train_brain._train_op, train_brain._train_loss_op,
+                                               train_brain._update_state_op])
                         periodic_loss += loss
                         epoch_loss += loss
-
+                        print("successful step")
                         # print accumulated loss after every few hundred steps
                         if step_i > 0 and (step_i % 500) == 0:
                             tqdm.tqdm.write(
@@ -96,7 +97,7 @@ def run_training(params):
                     #  decay learning rate
                     if epoch_i + 1 % params.decaystep == 0:
                         decay_step += 1
-                        current_learning_rate = sess.run(train_brain.learning_rate_op)
+                        current_learning_rate = sess.run(train_brain._learning_rate_op)
                         tqdm.tqdm.write("Decreased learning rate to %f." % (current_learning_rate))
 
             except KeyboardInterrupt:

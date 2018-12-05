@@ -48,7 +48,7 @@ class LabelData():
         new_list_dir = []
         if(self._read_all):
             for floder in list_dir:
-                temp_list_dir,temp_list_file = self.showName('/'+floder)
+                temp_list_dir,temp_list_file = self.showName(floder)
                 list_file = list_file + temp_list_file
                 new_list_dir = new_list_dir + temp_list_dir
             for floder in new_list_dir:
@@ -117,7 +117,7 @@ class MapData:
     def getMap(self):
         file = tf.read_file(self._origin_path)
         self._image = tf.image.decode_image(file,channels=3)
-        image = tf.cast(self._image, tf.float32)
+        self._image = tf.cast(self._image, tf.float64)
         return self._image
 #-----------------------------------------------------------------------------"        
 """

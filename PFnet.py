@@ -31,13 +31,16 @@ class PFnetClass(object):
         self._parameters = parameters
         self._output = []
         self._hidden_states = []
-        self._train_loss = None
-        self._valid_loss = None
-        self._all_distance = None
-        self._global_step = None
-        self._learning_rate = None
-        self._train = None
-        self._update_state = tf.constant(0)
+
+        self._train_op = None
+        self._train_loss_op = None
+        self._valid_loss_op = None
+        self._all_distance2_op = None
+        self._global_step_op = None
+        self._learning_rate_op = None
+
+        self._update_state_op = tf.constant(0)
+
         self._particle_nums = parameters.particle_nums
         init_states = self.initParticleStates(labels[:,1,:])
         self.build(map_data=map_data, ins=inputs[:, 1:, :], init_particle_states=init_states,
@@ -45,7 +48,8 @@ class PFnetClass(object):
 
     def build(self, map_data, ins, init_particle_states, labels, is_training):
         self.outputs = self.buildRnn(map_data, ins, init_particle_states)
-        self.buildLoss(self.outputs, true_states=labels)
+        particle_states,particle_weights = self.outputs
+        self.buildLoss(particle_states, particle_weights,labels)
         if is_training:
             self.buildTrain()
 
@@ -60,12 +64,12 @@ class PFnetClass(object):
 
 
     def saveState(self, sess):
-        return sess.run(self.hidden_states)
+        return sess.run(self._hidden_states)
 
     def loadState(self, sess, savedState):
-        return sess.run(self.hidden_sates,
-                        feed={self.hidden_states[i]:
-                                  savedState[i] for i in range(len(self.hidden_states))})
+        return sess.run(self._hidden_sates,
+                        feed={self._hidden_states[i]:
+                                  savedState[i] for i in range(len(self._hidden_states))})
 
     def buildLoss(self, particle_states, particle_weights, true_states):
         lin_weights = tf.nn.softmax(particle_weights, dim=-1)
@@ -79,31 +83,30 @@ class PFnetClass(object):
         loss_reg = tf.multiply(tf.losses.get_regularization_loss(),
                                self._parameters.l2scale, name='L2')
         loss_total = tf.add_n([loss_pred, loss_reg], name="training_loss")
-        self._all_distance2 = loss_coords
-        self._valid_loss = loss_pred
-        self._train_loss = loss_total
+        self._all_distance2_op = loss_coords
+        self._valid_loss_op = loss_pred
+        self._train_loss_op = loss_total
         return loss_total
 
     def buildTrain(self):
-        assert self._train is None and self._global_step is None and self._learning_rate is None
+        assert self._train_op is None and self._global_step_op is None and self._learning_rate_op is None
 
         with tf.device("/cpu:0"):
-            self._global_step = tf.get_variable(
+            self._global_step_op = tf.get_variable(
                 initializer=tf.constant_initializer(0.0), shape=(), trainable=False, name='global_step')
-            self._learning_rate = tf.train.exponential_decay(
-                self._parameters.learning_rate, self._global_step, decay_steps=1,
+            self._learning_rate_op = tf.train.exponential_decay(
+                self._parameters.learning_rate, self._global_step_op, decay_steps=1,
                 decay_rate=self._parameters.decay_rate, staircase=True, name="learning_rate")
 
-            optimizer = tf.train.RMSPropOptimizer(self._learning_rate, decay=0.9)
+            optimizer = tf.train.RMSPropOptimizer(self._learning_rate_op, decay=0.9)
         with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
-            self._train = optimizer.minimize(self._train_loss, global_step=None,
-                                             var_list=tf.trainable_variables())
-        return self._train
+            self._train_op = optimizer.minimize(self._train_loss_op, global_step=None,var_list=tf.trainable_variables())
+        return self._train_op
 
     def buildRnn(self, map_data, ins, init_particle_states):
         batch_size= ins.get_shape().as_list()[0]
         particle_nums = self._particle_nums
-        map_shape = tf.shape(map_data).eval()
+        map_shape = tf.shape(map_data)[1:]
 
         init_particle_weights = tf.constant(np.log(1.0 / float(particle_nums)),
                                             shape=(batch_size, particle_nums), dtype=tf.float64)
@@ -137,7 +140,7 @@ class PFnetClass(object):
                                                 scope=tf.get_variable_scope())
         particle_states, particle_weights = outputs
         with tf.control_dependencies([particle_states, particle_weights]):
-            self._update_state = tf.group(
+            self._update_state_op = tf.group(
                 *(self._hidden_states[i].assign(state[i]) for i in range(len(self._hidden_states))))
 
         return particle_states, particle_weights
