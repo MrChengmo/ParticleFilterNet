@@ -66,9 +66,9 @@ class PFCellClass(rnn):
         with tf.name_scope('transition'):
             loc_x, loc_y = tf.unstack(particle_states, axis=-1, num=2)
             ins_x, ins_y = tf.unstack(ins, axis=-1, num=2)
-            ins_x = tf.tile([ins_x], multiples=[self._particle_nums, 1])
+            ins_x = tf.tile([ins_x],multiples=[self._particle_nums,1])
             ins_x = tf.transpose(ins_x)
-            ins_y = tf.tile([ins_y], multiples=[self._particle_nums, 1])
+            ins_y = tf.tile([ins_y],multiples=[self._particle_nums,1])
             ins_y = tf.transpose(ins_y)
             ins_x += tf.to_double(tf.random_normal(loc_x.get_shape(), mean=0.0, stddev=1.0) * distance_para)
             ins_y += tf.to_double(tf.random_normal(loc_y.get_shape(), mean=0.0, stddev=1.0) * distance_para)
@@ -88,10 +88,10 @@ class PFCellClass(rnn):
                                    + particle_maps.shape.as_list()[2:])
         map_features = self.mapFeatures(particle_maps)
 
-        weight_vec = tf.reshape(map_features, [self._batch_size * self._particle_nums, -1])
+        weight_vec = tf.reshape(map_features, [self._batch_size*self._particle_nums,-1])
         weight_vec = self.vectorFeatures(weight_vec)
 
-        new_particle_weights = tf.reshape(weight_vec, [self._batch_size, self._particle_nums])
+        new_particle_weights = tf.reshape(weight_vec,[self._batch_size,self._particle_nums])
         return new_particle_weights
 
     @staticmethod
@@ -151,7 +151,7 @@ class PFCellClass(rnn):
             particle_map_list.append(self.mapCut(map_data, old_flat_states[i], new_flat_states[i]))
         particle_map = tf.reshape(particle_map_list, [batch_size, num_particles,
                                                       self._parameters.particle_map_shape[0],
-                                                      self._parameters.particle_map_shape[1], 3)
+                                                      self._parameters.particle_map_shape[1],3])
         return particle_map
 
     def mapCut(self, map_data, old_partcile_states, new_particle_states):
@@ -188,6 +188,7 @@ class PFCellClass(rnn):
             x = tf.concat(convs, axis=-1)
             x = tf.contrib.layers.layer_norm(x, activation_fn=tf.nn.relu)
             print(x.get_shape().as_list())
+
 
             x = tf.layers.max_pooling2d(x, pool_size=(3, 3), strides=(2, 2), padding="same")
 
@@ -231,7 +232,7 @@ class PFCellClass(rnn):
     def vectorFeatures(weight_vector):
         with tf.variable_scope("weight_fc"):
             x = weight_vector
-            x = dense_layer(1, activation=None, use_bias=True, name='fc2')(x)
+            x = dense_layer(1,activation=None,use_bias=True,name='fc2')(x)
         return x
 
     def weightVariable(layer_shape):
