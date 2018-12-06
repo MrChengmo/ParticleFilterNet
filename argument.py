@@ -14,9 +14,9 @@ def parse_args(args=None):
     "--------------------------------超参数-------------------------------------" 
     p = configargparse.ArgParser(default_config_files=[])
     
-    p.add('--train_files_path',default='E:/ParticleFilterNet/data', help='Data file(s) for training (tfrecord).')
-    p.add('--test_files_path',default='E:/ParticleFilterNet/data', help='Data file(s) for validation or evaluation (tfrecord).')
-    p.add('--map_files_path',default ='E:/ParticleFilterNet/map/map.jpg',help = 'Map file(s) for training and testing')
+    p.add('--train_files_path',default='/home/silence/ParticleFilterNet/data', help='Data file(s) for training (tfrecord).')
+    p.add('--test_files_path',default='/home/silence/ParticleFilterNet/data', help='Data file(s) for validation or evaluation (tfrecord).')
+    p.add('--map_files_path',default ='/home/silence/ParticleFilterNet/map/map.jpg',help = 'Map file(s) for training and testing')
     p.add('--read_all',type=bool,default = 'True',help = 'wether read all folder and file in root path')
     p.add('--train_ration',type = float,default = 0.9,help = 'the ratio of files in all file which used to train model')
     # input configuration

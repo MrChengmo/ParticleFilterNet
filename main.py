@@ -11,7 +11,7 @@ import numpy as np
 import os, tqdm
 import tensorflow as tf
 # tf.enable_eager_execution()
-import matplotlib.pyplot as plt
+import math
 from argument import parse_args
 from DataProcess import LabelData, MapData
 from PFnet import PFnetClass
@@ -27,7 +27,8 @@ def run_training(params):
         testData = LabelData(params.test_files_path, params.train_ration, params.read_all)
         mapData = MapData(params.map_files_path)
 
-        num_train_samples = trainData.getBatchNums(params.time_step)
+        num_train_samples = trainData.getBatchNums(params.time_step)/params.batchsize
+        num_train_samples = math.floor(num_train_samples)
         train_data = trainData.getData(params.epochs)
         train_data = train_data.batch(params.batchsize, drop_remainder=True)
         train_iter = train_data.make_one_shot_iterator()
@@ -56,11 +57,8 @@ def run_training(params):
         init_op = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
 
         # training session
-        config = tf.ConfigProto(allow_soft_placement=True)
-        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.7)
-        config.gpu_options.allow_growth = True
 
-        with tf.Session(config=config) as sess:
+        with tf.Session() as sess:
             sess.run(init_op)
             print("successful init_op")
             coord = tf.train.Coordinator()
@@ -92,7 +90,7 @@ def run_training(params):
                         "Epoch %d done. Average training loss = %f" % (epoch_i + 1, epoch_loss / num_train_samples))
 
                     # run validation
-                    validation(sess, test_brain, num_samples=num_test_samples, params=params)
+                    #validation(sess, test_brain, num_samples=num_test_samples, params=params)
 
                     #  decay learning rate
                     if epoch_i + 1 % params.decaystep == 0:
