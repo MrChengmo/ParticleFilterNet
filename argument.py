@@ -39,11 +39,11 @@ def parse_args(args=None):
     # training configuration
     p.add('--batchsize', type=int, default=5, help='Minibatch size for training. Must be 1 for evaluation.')
     p.add('--time_step', type=int, default=10, help='Number of foot step which one traj has.')
-    p.add('--learningrate', type=float, default=0.0025, help='Initial learning rate for training.')
+    p.add('--learning_rate', type=float, default=0.0025, help='Initial learning rate for training.')
     p.add('--l2scale', type=float, default=4e-6, help='Scaling term for the L2 regularization loss.')
     p.add('--epochs', metavar='epochs', type=int, default=1, help='Number of epochs for training.')
-    p.add('--decaystep', type=int, default=4, help='Decay the learning rate after every N epochs.')
-    p.add('--decayrate', type=float, help='Rate of decaying the learning rate.')
+    p.add('--decay_step', type=int, default=4, help='Decay the learning rate after every N epochs.')
+    p.add('--decay_rate', type=float, default=0.7,help='Rate of decaying the learning rate.')
 
     p.add('--load', type=str, default="", help='Load a previously trained model from a checkpoint file.')
     p.add('--logpath', type=str, default='',
