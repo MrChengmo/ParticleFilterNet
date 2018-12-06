@@ -9,14 +9,11 @@ Created on Thu Nov 15 15:37:26 2018
 """
 import numpy as np
 import tensorflow as tf
-# tf.enable_eager_execution()
-import matplotlib.pyplot as plt
+import tqdm, os
 from argument import parse_args
 from DataProcess import LabelData, MapData
 from PFnet import PFnetClass
 import math
-
-"""使用Tensorflow的eager模式方便调试"""
 
 
 def run_training(params):
@@ -29,12 +26,15 @@ def run_training(params):
 
         num_train_samples = trainData.getBatchNums(params.time_step) / params.batchsize
         num_train_samples = math.floor(num_train_samples)
+
         train_data = trainData.getData(params.epochs)
         train_data = train_data.batch(params.batchsize, drop_remainder=True)
         train_iter = train_data.make_one_shot_iterator()
         inputs = train_iter.get_next()
 
-        num_test_samples = testData.getBatchNums(params.time_step)
+        num_test_samples = testData.getBatchNums(params.time_step) / params.batchsize
+        num_test_samples = math.floor((num_test_samples))
+
         test_data = testData.getData(params.epochs)
         test_data = test_data.batch(params.batchsize, drop_remainder=True)
         test_iter = test_data.make_one_shot_iterator()
@@ -47,21 +47,29 @@ def run_training(params):
 
         # training data and network
         with tf.variable_scope(tf.get_variable_scope(), reuse=False):
-            train_brain = PFnetClass(map_data, inputs=inputs[0], labels=inputs[1], parameters=params,is_training=True)
+            train_brain = PFnetClass(map_data, inputs=inputs[0], labels=inputs[1], parameters=params, is_training=True)
         print("successful train_op")
         # test data and network
         with tf.variable_scope(tf.get_variable_scope(), reuse=True):
-            test_brain = PFnetClass(map_data, inputs=test_inputs[0], labels=test_inputs[1], parameters=params,is_training=False)
+            test_brain = PFnetClass(map_data, inputs=test_inputs[0], labels=test_inputs[1], parameters=params,
+                                    is_training=False)
         print("successful test_op")
         # Add the variable initializer Op.
         init_op = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
 
+        saver = tf.train.Saver(var_list=tf.trainable_variables(), max_to_keep=3)
+
         # training session
-
-
         with tf.Session() as sess:
             sess.run(init_op)
             print("successful init_op")
+
+            if params.load:
+                print("Loading model from " + params.load)
+                saver.restore(sess, params.load)
+
+            coord = tf.train.Coordinator()
+            threads = tf.train.start_queue_runners(coord=coord)
 
             try:
                 decay_step = 0
@@ -70,38 +78,47 @@ def run_training(params):
                 for epoch_i in range(params.epochs):
                     epoch_loss = 0.0
                     periodic_loss = 0.0
-                    print(num_train_samples)
-                    print("successful epoch")
+
                     # run training over all samples in an epoch
-                    for step_i in range(num_train_samples):
+                    for step_i in tqdm.tqdm(range(num_train_samples)):
                         _, loss, _ = sess.run([train_brain._train_op, train_brain._train_loss_op,
                                                train_brain._update_state_op])
                         periodic_loss += loss
                         epoch_loss += loss
-                        print(step_i)
-                        # print accumulated loss after every few hundred steps
 
+                        # print accumulated loss after every few hundred steps
+                        if step_i > 0 and (step_i % 500) == 0:
+                            tqdm.tqdm.write(
+                                "Epoch %d, step %d. Training loss = %f" % (epoch_i + 1, step_i, periodic_loss / 500.0))
+                            periodic_loss = 0.0
 
                     # print the avarage loss over the epoch
-                    print(epoch_loss)
+                    tqdm.tqdm.write(
+                        "Epoch %d done. Average training loss = %f" % (epoch_i + 1, epoch_loss / num_train_samples))
+
+                    # save model, validate and decrease learning rate after each epoch
+                    saver.save(sess, os.path.join(params.logpath, 'model.chk'), global_step=epoch_i + 1)
 
                     # run validation
-                    #validation(sess, test_brain, num_samples=num_test_samples, params=params)
+                    validation(sess, test_brain, num_samples=num_test_samples, params=params)
 
                     #  decay learning rate
-                    """
-                    if epoch_i + 1 % params.decaystep == 0:
+
+                    if epoch_i + 1 % params.decay_step == 0:
                         decay_step += 1
                         current_learning_rate = sess.run(train_brain._learning_rate_op)
                         tqdm.tqdm.write("Decreased learning rate to %f." % (current_learning_rate))
-                    """
+
             except KeyboardInterrupt:
                 pass
 
             except tf.errors.OutOfRangeError:
                 print("data exhausted")
 
+            finally:
+                saver.save(sess, os.path.join(params.logpath, 'final.chk'))  # dont pass global step
 
+            coord.request_stop()
         print("Training done. Model is saved to %s" % (params.logpath))
 
 
@@ -126,7 +143,7 @@ def validation(sess, brain, num_samples, params):
     total_loss = 0.0
     try:
         for eval_i in range(num_samples):
-            loss, _ = sess.run([brain.valid_loss_op, brain.update_state_op])
+            loss, _ = sess.run([brain._valid_loss_op, brain._update_state_op])
             total_loss += loss
 
         print("Validation loss = %f" % (total_loss / num_samples))

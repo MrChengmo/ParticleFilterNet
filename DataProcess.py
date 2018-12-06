@@ -10,7 +10,6 @@ Created on Thu Nov 15 15:35:36 2018
 import os
 import math
 import tensorflow as tf
-import matplotlib.pyplot as plt
 import tensorflow.contrib.eager as tfe
 import numpy as np
 #tfe.enable_eager_execution()

@@ -53,6 +53,13 @@ class PFnetClass(object):
         if is_training:
             self.buildTrain()
 
+    def save_state(self,sess):
+        return sess.run(self._hidden_states)
+
+    def load_state(self,sess,save_state):
+        return sess.run(self._hidden_states,
+                        feed_dict = {self._hidden_states[i]:save_state[i] for i in range(len(self._hidden_states))})
+
     def initParticleStates(self,init_loc):
         batch_size = init_loc.get_shape().as_list()[0]
         init_states = []
