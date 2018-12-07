@@ -29,7 +29,6 @@ def run_training(params):
 
         train_data = trainData.getData(params.epochs)
         train_data = train_data.batch(params.batchsize, drop_remainder=True)
-        train_data = train_data.repeat(params.epochs)
         train_iter = train_data.make_one_shot_iterator()
         inputs = train_iter.get_next()
 
