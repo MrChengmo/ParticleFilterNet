@@ -42,33 +42,32 @@ class PFnetClass(object):
         self._update_state_op = tf.constant(0)
 
         self._particle_nums = parameters.particle_nums
-        init_states = self.initParticleStates(labels[:,1,:])
+        init_states = self.initParticleStates(labels[:, 1, :])
         self.build(map_data=map_data, ins=inputs[:, 1:, :], init_particle_states=init_states,
                    labels=labels[:, 1:, :], is_training=is_training)
 
     def build(self, map_data, ins, init_particle_states, labels, is_training):
         self.outputs = self.buildRnn(map_data, ins, init_particle_states)
-        particle_states,particle_weights = self.outputs
-        self.buildLoss(particle_states, particle_weights,labels)
+        particle_states, particle_weights = self.outputs
+        self.buildLoss(particle_states, particle_weights, labels)
         if is_training:
             self.buildTrain()
 
-    def save_state(self,sess):
+    def save_state(self, sess):
         return sess.run(self._hidden_states)
 
-    def load_state(self,sess,save_state):
+    def load_state(self, sess, save_state):
         return sess.run(self._hidden_states,
-                        feed_dict = {self._hidden_states[i]:save_state[i] for i in range(len(self._hidden_states))})
+                        feed_dict={self._hidden_states[i]: save_state[i] for i in range(len(self._hidden_states))})
 
-    def initParticleStates(self,init_loc):
+    def initParticleStates(self, init_loc):
         batch_size = init_loc.get_shape().as_list()[0]
         init_states = []
         for i in range(batch_size):
-            init_batch_states = tf.tile([init_loc[i]],multiples=[self._particle_nums,1 ])
+            init_batch_states = tf.tile([init_loc[i]], multiples=[self._particle_nums, 1])
             init_states.append(init_batch_states)
         init_states = tf.convert_to_tensor(init_states)
         return init_states
-
 
     def saveState(self, sess):
         return sess.run(self._hidden_states)
@@ -107,11 +106,12 @@ class PFnetClass(object):
 
             optimizer = tf.train.RMSPropOptimizer(self._learning_rate_op, decay=0.9)
         with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
-            self._train_op = optimizer.minimize(self._train_loss_op, global_step=None,var_list=tf.trainable_variables())
+            self._train_op = optimizer.minimize(self._train_loss_op, global_step=None,
+                                                var_list=tf.trainable_variables())
         return self._train_op
 
     def buildRnn(self, map_data, ins, init_particle_states):
-        batch_size= ins.get_shape().as_list()[0]
+        batch_size = ins.get_shape().as_list()[0]
         particle_nums = self._particle_nums
         map_shape = tf.shape(map_data)[1:]
 

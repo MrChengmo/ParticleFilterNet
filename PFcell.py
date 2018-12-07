@@ -57,24 +57,27 @@ class PFCellClass(rnn):
             new_states, new_weights = self.resampleModel(particle_states, particle_weights,
                                                          resample_para=self._parameters.resample_para)
 
-            output = new_states,new_weights
-            state = new_states,new_weights
-        return output,state
+            output = new_states, new_weights
+            state = new_states, new_weights
+        return output, state
 
     def transitionModel(self, particle_states, ins):
         """
         particle_states update by ins information and transition noise
         """
-        distance_para = self._parameters.transition_para[0] / self._parameters.map_pixel_para
+        distance_para_x = self._parameters.transition_para[0] * self._parameters.meter_pixel_para
+        distance_para_y = self._parameters.transition_para[1] * self._parameters.meter_pixel_para
         with tf.name_scope('transition'):
             loc_x, loc_y = tf.unstack(particle_states, axis=-1, num=2)
             ins_x, ins_y = tf.unstack(ins, axis=-1, num=2)
-            ins_x = tf.tile([ins_x],multiples=[self._particle_nums,1])
+            ins_x = tf.tile([ins_x], multiples=[self._particle_nums, 1])
             ins_x = tf.transpose(ins_x)
-            ins_y = tf.tile([ins_y],multiples=[self._particle_nums,1])
+            ins_y = tf.tile([ins_y], multiples=[self._particle_nums, 1])
             ins_y = tf.transpose(ins_y)
-            ins_x += tf.to_double(tf.random_normal(loc_x.get_shape(), mean=0.0, stddev=1.0) * distance_para)
-            ins_y += tf.to_double(tf.random_normal(loc_y.get_shape(), mean=0.0, stddev=1.0) * distance_para)
+            ins_x += tf.to_double(
+                tf.random_normal(loc_x.get_shape(), mean=0.0, stddev=self._parameters.step_stddev) * distance_para_x)
+            ins_y += tf.to_double(
+                tf.random_normal(loc_y.get_shape(), mean=0.0, stddev=self._parameters.step_stddev) * distance_para_y)
 
             new_particle_states = tf.stack([loc_x + ins_x, loc_y + ins_y], axis=-1)
         return new_particle_states
@@ -91,10 +94,10 @@ class PFCellClass(rnn):
                                    + particle_maps.shape.as_list()[2:])
         map_features = self.mapFeatures(particle_maps)
 
-        weight_vec = tf.reshape(map_features, [self._batch_size*self._particle_nums,-1])
+        weight_vec = tf.reshape(map_features, [self._batch_size * self._particle_nums, -1])
         weight_vec = self.vectorFeatures(weight_vec)
 
-        new_particle_weights = tf.reshape(weight_vec,[self._batch_size,self._particle_nums])
+        new_particle_weights = tf.reshape(weight_vec, [self._batch_size, self._particle_nums])
         return new_particle_weights
 
     @staticmethod
@@ -137,7 +140,7 @@ class PFCellClass(rnn):
             particle_weights = tf.reshape(particle_weights, (batch_size * num_particles,))
             particle_weights = tf.gather(particle_weights, indices=indices, axis=0)  # (batch_size, num_particles,)
 
-        return particle_states,particle_weights
+        return particle_states, particle_weights
 
     def mapTransform(self, map_data, old_particle_states, new_particle_states):
         """
@@ -154,7 +157,7 @@ class PFCellClass(rnn):
             particle_map_list.append(self.mapCut(map_data, old_flat_states[i], new_flat_states[i]))
         particle_map = tf.reshape(particle_map_list, [batch_size, num_particles,
                                                       self._parameters.particle_map_shape[0],
-                                                      self._parameters.particle_map_shape[1],3])
+                                                      self._parameters.particle_map_shape[1], 3])
 
         return particle_map
 
@@ -231,7 +234,7 @@ class PFCellClass(rnn):
     def vectorFeatures(weight_vector):
         with tf.variable_scope("weight_fc"):
             x = weight_vector
-            x = dense_layer(1,activation=None,use_bias=True,name='fc2')(x)
+            x = dense_layer(1, activation=None, use_bias=True, name='fc2')(x)
         return x
 
     def weightVariable(layer_shape):

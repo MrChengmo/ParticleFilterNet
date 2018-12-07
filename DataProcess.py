@@ -105,6 +105,8 @@ class LabelData():
         features = data[:,0:2]
         labels = data[:,3:5]
         dataset = tf.data.Dataset.from_tensor_slices((features,labels)).batch(self._time_step,drop_remainder=True)
+        dataset = dataset.repeat(num_epochs)
+        dataset = dataset.shuffle(self._time_step)
         return dataset
     
 
