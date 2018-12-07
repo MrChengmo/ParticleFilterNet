@@ -27,7 +27,7 @@ def parse_args(args=None):
     p.add('--particle_map_length',type=int,default=100,help='the length of particle map')
 
     # PF-net configuration
-    p.add('--particle_nums', type=int, default=30, help='Number of particles in PF-net.')
+    p.add('--particle_nums', type=int, default=50, help='Number of particles in PF-net.')
     p.add('--resample', type=str, default='true',
           help='Resample particles in PF-net. Possible values: true / false.')
     p.add('--resample_para', type=float, default=1.0,
@@ -42,7 +42,7 @@ def parse_args(args=None):
     p.add('--time_step', type=int, default=10, help='Number of foot step which one traj has.')
     p.add('--learning_rate', type=float, default=0.0025, help='Initial learning rate for training.')
     p.add('--l2scale', type=float, default=4e-6, help='Scaling term for the L2 regularization loss.')
-    p.add('--epochs', metavar='epochs', type=int, default=1, help='Number of epochs for training.')
+    p.add('--epochs', metavar='epochs', type=int, default=10, help='Number of epochs for training.')
     p.add('--decay_step', type=int, default=4, help='Decay the learning rate after every N epochs.')
     p.add('--decay_rate', type=float, default=0.01,help='Rate of decaying the learning rate.')
 
