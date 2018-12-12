@@ -14,11 +14,11 @@ def parse_args(args=None):
     "--------------------------------超参数-------------------------------------"
     p = configargparse.ArgParser(default_config_files=[])
 
-    p.add('--train_files_path', default='E:/毕设论文/ParticleFilterNet/train_data',
+    p.add('--train_files_path', default='train_data/',
           help='Data file(s) for training (csv).')
-    p.add('--test_files_path', default='E:/毕设论文/ParticleFilterNet/test_data',
+    p.add('--test_files_path', default='test_data/',
           help='Data file(s) for validation or evaluation (csv).')
-    p.add('--map_files_path', default='E:/毕设论文/ParticleFilterNet/map/map.jpg',
+    p.add('--map_files_path', default='map/map.jpg',
           help='Map file(s) for training and testing')
 
     p.add('--read_all', type=bool, default='True', help='read all folder and file in root path')
@@ -27,7 +27,7 @@ def parse_args(args=None):
     p.add('--pixel_meter_para', type=float, default=0.04017182, help='单位像素距离对应的实际距离（m）')
     p.add('--meter_pixel_para', type=float, default=24.89307181, help='map_pixel_para的倒数，实际距离一米在地图中为多少像素')
     p.add('--particle_map_shape', nargs='*', default=[100, 100], help='the shape of particle map')
-    p.add('--particle_map_length', type=int, default=100, help='the length of particle map')
+    p.add('--particle_map_length', type=float, default=100.0, help='the length of particle map')
 
     # PF-net configuration
     p.add('--particle_nums', type=int, default=30, help='Number of particles in PF-net.')
