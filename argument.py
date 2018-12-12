@@ -14,11 +14,11 @@ def parse_args(args=None):
     "--------------------------------超参数-------------------------------------"
     p = configargparse.ArgParser(default_config_files=[])
 
-    p.add('--train_files_path', default='E:/毕设论文/ParticleFilterNet/train_data',
+    p.add('--train_files_path', default='/home/silence/ParticleFilterNet/train_data',
           help='Data file(s) for training (csv).')
-    p.add('--test_files_path', default='E:/毕设论文/ParticleFilterNet/test_data',
+    p.add('--test_files_path', default='/home/silence/ParticleFilterNet/test_data',
           help='Data file(s) for validation or evaluation (csv).')
-    p.add('--map_files_path', default='E:/毕设论文/ParticleFilterNet/map/map.jpg',
+    p.add('--map_files_path', default='/home/silence/ParticleFilterNet/map/map.jpg',
           help='Map file(s) for training and testing')
 
     p.add('--read_all', type=bool, default='True', help='read all folder and file in root path')
