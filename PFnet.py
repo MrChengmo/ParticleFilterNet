@@ -9,7 +9,7 @@ Created on Wed Nov 21 19:29:10 2018
 """
 import numpy as np
 import tensorflow as tf
-import tensorflow.contrib.eager as tfe
+import datetime
 from PFcell import PFCellClass
 import datetime
 
@@ -43,6 +43,9 @@ class PFnetClass(object):
         self._update_state_op = tf.constant(0)
         self._record_path = parameters.res_path
         self._particle_nums = parameters.particle_nums
+
+        self._record_path = parameters.res_path
+
         init_states = self.initParticleStates(labels[:, 1, :])
         self.build(map_data=map_data, ins=inputs[:, 1:, :], init_particle_states=init_states,
                    labels=labels[:, 1:, :], is_training=is_training)
@@ -83,7 +86,10 @@ class PFnetClass(object):
         true_coords = true_states[:, :, :2]
         mean_coords = tf.reduce_mean(tf.multiply(
             particle_states[:, :, :, :2], lin_weights[:, :, :, None]), axis=2)
-        self.pathRecord(self._record_path, mean_coords, true_coords)
+
+        self._pred_coords = mean_coords
+        self._true_coords = true_coords
+
         coord_diffs = mean_coords - true_coords
         loss_coords = tf.reduce_sum(tf.square(coord_diffs), axis=2)
 
@@ -129,6 +135,7 @@ class PFnetClass(object):
 
         state = (init_particle_states, init_particle_weights)
         with tf.variable_scope("rnn"):
+
             init_cell = PFCellClass(map_data=tf.zeros(map_shape, dtype=tf.float64),
                                     paramters=self._parameters, batch_size=1, particle_nums=1)
             init_cell(tf.zeros([1, 2], dtype=np.float64),  # inputs
@@ -155,10 +162,12 @@ class PFnetClass(object):
         return particle_states, particle_weights
 
     def pathRecord(self,sess):
-        res_coord = self._pred
-        now_time = datetime.datetime.now().strftime('%Y-%m-%d')
-        batch_size = res_coord.get_shape().as_list()[0]
-        data = tf.concat([res_coord, true_coord], 2)
+
+        path = self._record_path
+        now_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        batch_size = self._pred_coords.get_shape().as_list()[0]
+        data = tf.concat([self._pred_coords, self._true_coords], 2)
         for i in range(batch_size):
             filename = str(path) + "/" + now_time + "--" + str(i) + '.csv'
-            np.savetxt(filename, data[i], delimiter=",")
+            np.savetxt(filename, data[i].eval(session = sess), delimiter=",")
+

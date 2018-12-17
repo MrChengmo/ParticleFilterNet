@@ -13,6 +13,7 @@ import tqdm, os
 from argument import parse_args
 from DataProcess import LabelData, MapData
 from PFnet import PFnetClass
+import datetime
 import math
 
 
@@ -33,7 +34,7 @@ def run_training(params):
         inputs = train_iter.get_next()
 
         num_test_samples = testData.getBatchNums(params.time_step) / params.batchsize
-        num_test_samples = math.floor((num_test_samples))
+        num_test_samples = math.floor(num_test_samples)
 
         test_data = testData.getData(params.epochs)
         test_data = test_data.batch(params.batchsize, drop_remainder=True)
@@ -81,10 +82,21 @@ def run_training(params):
 
                     # run training over all samples in an epoch
                     for step_i in tqdm.tqdm(range(num_train_samples)):
-                        _, loss, _ = sess.run([train_brain._train_op, train_brain._train_loss_op,
-                                               train_brain._update_state_op,train_brain.pathRecord()])
+
+                        _, loss, _, pred,true = sess.run([train_brain._train_op, train_brain._train_loss_op,
+                                               train_brain._update_state_op,train_brain._pred_coords,train_brain._true_coords])
+
                         periodic_loss += loss
                         epoch_loss += loss
+
+                        path = params.res_path
+                        now_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        batch_size = params.batchsize
+
+                        data = np.concatenate([pred,true],2)
+                        for i in range(batch_size):
+                            filename = str(path) + "/" + now_time + "--" + str(i) + '.csv'
+                            np.savetxt(filename, data[i], delimiter=",")
 
                         # print accumulated loss after every few hundred steps
                         if step_i > 0 and (step_i % 50) == 0:
