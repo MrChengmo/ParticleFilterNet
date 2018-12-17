@@ -33,7 +33,7 @@ def run_training(params):
         inputs = train_iter.get_next()
 
         num_test_samples = testData.getBatchNums(params.time_step) / params.batchsize
-        num_test_samples = math.floor((num_test_samples))
+        num_test_samples = math.floor(num_test_samples)
 
         test_data = testData.getData(params.epochs)
         test_data = test_data.batch(params.batchsize, drop_remainder=True)
@@ -81,8 +81,8 @@ def run_training(params):
 
                     # run training over all samples in an epoch
                     for step_i in tqdm.tqdm(range(num_train_samples)):
-                        _, loss, _ = sess.run([train_brain._train_op, train_brain._train_loss_op,
-                                               train_brain._update_state_op])
+                        _, loss, _,_ = sess.run([train_brain._train_op, train_brain._train_loss_op,
+                                               train_brain._update_state_op,train_brain.pathRecord(sess)])
                         periodic_loss += loss
                         epoch_loss += loss
 
