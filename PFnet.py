@@ -11,6 +11,7 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.contrib.eager as tfe
 from PFcell import PFCellClass
+import datetime
 
 
 class PFnetClass(object):
@@ -40,7 +41,7 @@ class PFnetClass(object):
         self._learning_rate_op = None
 
         self._update_state_op = tf.constant(0)
-
+        self._record_path = parameters.res_path
         self._particle_nums = parameters.particle_nums
         init_states = self.initParticleStates(labels[:, 1, :])
         self.build(map_data=map_data, ins=inputs[:, 1:, :], init_particle_states=init_states,
@@ -82,6 +83,7 @@ class PFnetClass(object):
         true_coords = true_states[:, :, :2]
         mean_coords = tf.reduce_mean(tf.multiply(
             particle_states[:, :, :, :2], lin_weights[:, :, :, None]), axis=2)
+        self.pathRecord(self._record_path, mean_coords, true_coords)
         coord_diffs = mean_coords - true_coords
         loss_coords = tf.reduce_sum(tf.square(coord_diffs), axis=2)
 
@@ -97,14 +99,14 @@ class PFnetClass(object):
     def buildTrain(self):
         assert self._train_op is None and self._global_step_op is None and self._learning_rate_op is None
 
-        with tf.device("/cpu:0"):
-            self._global_step_op = tf.get_variable(
+
+        self._global_step_op = tf.get_variable(
                 initializer=tf.constant_initializer(0.0), shape=(), trainable=False, name='global_step')
-            self._learning_rate_op = tf.train.exponential_decay(
+        self._learning_rate_op = tf.train.exponential_decay(
                 self._parameters.learning_rate, self._global_step_op, decay_steps=1,
                 decay_rate=self._parameters.decay_rate, staircase=True, name="learning_rate")
 
-            optimizer = tf.train.RMSPropOptimizer(self._learning_rate_op, decay=0.9)
+        optimizer = tf.train.RMSPropOptimizer(self._learning_rate_op, decay=0.9)
         with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
             self._train_op = optimizer.minimize(self._train_loss_op, global_step=None,
                                                 var_list=tf.trainable_variables())
@@ -151,3 +153,12 @@ class PFnetClass(object):
                 *(self._hidden_states[i].assign(state[i]) for i in range(len(self._hidden_states))))
 
         return particle_states, particle_weights
+
+    def pathRecord(self,sess):
+        res_coord = self._pred
+        now_time = datetime.datetime.now().strftime('%Y-%m-%d')
+        batch_size = res_coord.get_shape().as_list()[0]
+        data = tf.concat([res_coord, true_coord], 2)
+        for i in range(batch_size):
+            filename = str(path) + "/" + now_time + "--" + str(i) + '.csv'
+            np.savetxt(filename, data[i], delimiter=",")
