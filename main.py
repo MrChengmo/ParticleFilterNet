@@ -14,6 +14,7 @@ from argument import parse_args
 from DataProcess import LabelData, MapData
 from PFnet import PFnetClass
 import math
+import datetime
 
 
 def run_training(params):
@@ -81,16 +82,21 @@ def run_training(params):
 
                     # run training over all samples in an epoch
                     for step_i in tqdm.tqdm(range(num_train_samples)):
-                        _, loss, _,_ = sess.run([train_brain._train_op, train_brain._train_loss_op,
-                                               train_brain._update_state_op,train_brain.pathRecord(sess)])
+                        _, loss, _,pred,true = sess.run([train_brain._train_op, train_brain._train_loss_op,
+                                               train_brain._update_state_op,train_brain._pred_coords,train_brain._true_coords])
                         periodic_loss += loss
                         epoch_loss += loss
 
                         # print accumulated loss after every few hundred steps
-                        if step_i > 0 and (step_i % 500) == 0:
+                        if step_i > 0 and (step_i % 50) == 0:
                             tqdm.tqdm.write(
-                                "Epoch %d, step %d. Training loss = %f" % (epoch_i + 1, step_i, periodic_loss / 500.0))
+                                "Epoch %d, step %d. Training loss = %f" % (epoch_i + 1, step_i, periodic_loss / 50.0))
                             periodic_loss = 0.0
+                            now_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                            data = np.concatenate([pred, true], 2)
+                            for i in range(params.batchsize):
+                                filename = str(params.res_path) + "/" + now_time + "-"+str(epoch_i+1)+"-" + str(i) + '.csv'
+                                np.savetxt(filename, data[i], delimiter=",")
 
                     # print the avarage loss over the epoch
                     tqdm.tqdm.write(

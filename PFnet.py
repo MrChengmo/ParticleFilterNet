@@ -132,14 +132,14 @@ class PFnetClass(object):
 
         state = (init_particle_states, init_particle_weights)
         with tf.variable_scope("rnn"):
-            """
+
             init_cell = PFCellClass(map_data=tf.zeros(map_shape, dtype=tf.float64),
                                     paramters=self._parameters, batch_size=1, particle_nums=1)
             init_cell(tf.zeros([1, 2], dtype=np.float64),  # inputs
                       (tf.zeros([1, 1, 2], dtype=np.float64),
                        tf.zeros([1, 1], dtype=np.float64))  # state
                       )
-            """
+
             tf.get_variable_scope().reuse_variables()
             cell_func = PFCellClass(map_data=map_data, paramters=self._parameters,
                                     batch_size=batch_size, particle_nums=particle_nums)
@@ -158,13 +158,5 @@ class PFnetClass(object):
 
         return particle_states, particle_weights
 
-    def pathRecord(self,sess):
-        path = self._record_path
-        now_time = datetime.datetime.now().strftime('%Y-%m-%d')
-        batch_size = self._pred_coords.get_shape().as_list()[0]
-        data = tf.concat([self._pred_coords, self._true_coords], 2)
-        for i in range(batch_size):
-            filename = str(path) + "/" + now_time + "--" + str(i) + '.csv'
-            np.savetxt(filename, data[i].eval(session = sess), delimiter=",")
 
 
