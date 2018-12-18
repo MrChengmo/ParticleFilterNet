@@ -46,7 +46,7 @@ class PFnetClass(object):
 
         self._record_path = parameters.res_path
 
-        init_states = self.initParticleStates(labels[:, 1, :])
+        init_states = self.initParticleStates(labels[:, 0, :])
         self.build(map_data=map_data, ins=inputs[:, 1:, :], init_particle_states=init_states,
                    labels=labels[:, 1:, :], is_training=is_training)
 
@@ -82,9 +82,9 @@ class PFnetClass(object):
                                   savedState[i] for i in range(len(self._hidden_states))})
 
     def buildLoss(self, particle_states, particle_weights, true_states):
-        lin_weights = tf.nn.softmax(particle_weights, dim=-1)
+        lin_weights = tf.nn.softmax(particle_weights, axis=-1)
         true_coords = true_states[:, :, :2]
-        mean_coords = tf.reduce_mean(tf.multiply(
+        mean_coords = tf.reduce_sum(tf.multiply(
             particle_states[:, :, :, :2], lin_weights[:, :, :, None]), axis=2)
 
         self._pred_coords = mean_coords
@@ -121,7 +121,7 @@ class PFnetClass(object):
     def buildRnn(self, map_data, ins, init_particle_states):
         batch_size = ins.get_shape().as_list()[0]
         particle_nums = self._particle_nums
-        map_shape = tf.shape(map_data)[1:]
+        map_shape = tf.shape(map_data)[0:]
 
         init_particle_weights = tf.constant(np.log(1.0 / float(particle_nums)),
                                             shape=(batch_size, particle_nums), dtype=tf.float64)
@@ -132,8 +132,8 @@ class PFnetClass(object):
             tf.get_variable("particle_weights", shape=init_particle_weights.get_shape(),
                             dtype=init_particle_weights.dtype, initializer=tf.constant_initializer(0), trainable=False),
         ]
-
         state = (init_particle_states, init_particle_weights)
+
         with tf.variable_scope("rnn"):
 
             init_cell = PFCellClass(map_data=tf.zeros(map_shape, dtype=tf.float64),
@@ -160,14 +160,4 @@ class PFnetClass(object):
                 *(self._hidden_states[i].assign(state[i]) for i in range(len(self._hidden_states))))
 
         return particle_states, particle_weights
-
-    def pathRecord(self,sess):
-
-        path = self._record_path
-        now_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        batch_size = self._pred_coords.get_shape().as_list()[0]
-        data = tf.concat([self._pred_coords, self._true_coords], 2)
-        for i in range(batch_size):
-            filename = str(path) + "/" + now_time + "--" + str(i) + '.csv'
-            np.savetxt(filename, data[i].eval(session = sess), delimiter=",")
 
