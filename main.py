@@ -19,30 +19,29 @@ import datetime
 
 def run_training(params):
     """ Run training with the parsed arguments """
+    # 各个数据读取类初始化
+    trainData = LabelData(params.train_files_path, params.train_ration, params.read_all)
+    testData = LabelData(params.test_files_path, params.train_ration, params.read_all)
+    mapData = MapData(params.map_files_path)
+
+    num_train_samples = trainData.getBatchNums(params.time_step) / params.batchsize
+    num_train_samples = math.floor(num_train_samples)
+
+    train_data = trainData.getData(params.epochs)
+    train_data = train_data.batch(params.batchsize, drop_remainder=True)
+    train_iter = train_data.make_one_shot_iterator()
+    inputs = train_iter.get_next()
+
+    num_test_samples = testData.getBatchNums(params.time_step) / params.batchsize
+    num_test_samples = math.floor(num_test_samples)
+
+    test_data = testData.getData(params.epochs)
+    test_data = test_data.batch(params.batchsize, drop_remainder=True)
+    test_iter = test_data.make_one_shot_iterator()
+    test_inputs = test_iter.get_next()
+
+    map_data = mapData.getMap()
     with tf.Graph().as_default():
-        # 各个数据读取类初始化
-        trainData = LabelData(params.train_files_path, params.train_ration, params.read_all)
-        testData = LabelData(params.test_files_path, params.train_ration, params.read_all)
-        mapData = MapData(params.map_files_path)
-
-        num_train_samples = trainData.getBatchNums(params.time_step) / params.batchsize
-        num_train_samples = math.floor(num_train_samples)
-
-        train_data = trainData.getData(params.epochs)
-        train_data = train_data.batch(params.batchsize, drop_remainder=True)
-        train_iter = train_data.make_one_shot_iterator()
-        inputs = train_iter.get_next()
-
-        num_test_samples = testData.getBatchNums(params.time_step) / params.batchsize
-        num_test_samples = math.floor(num_test_samples)
-
-        test_data = testData.getData(params.epochs)
-        test_data = test_data.batch(params.batchsize, drop_remainder=True)
-        test_iter = test_data.make_one_shot_iterator()
-        test_inputs = test_iter.get_next()
-
-        map_data = mapData.getMap()
-
         if params.seed is not None:
             tf.set_random_seed(params.seed)
 

@@ -45,7 +45,7 @@ class PFnetClass(object):
 
         self._record_path = parameters.res_path
 
-        init_states = self.initParticleStates(labels[:, 1, :])
+        init_states = self.initParticleStates(labels[:, 1, :],parameters.particle_nums,parameters.batch_size)
         self.build(map_data=map_data, ins=inputs[:, 1:, :], init_particle_states=init_states,
                    labels=labels[:, 1:, :], is_training=is_training)
 
@@ -63,13 +63,19 @@ class PFnetClass(object):
         return sess.run(self._hidden_states,
                         feed_dict={self._hidden_states[i]: save_state[i] for i in range(len(self._hidden_states))})
 
-    def initParticleStates(self, init_loc):
-        batch_size = init_loc.get_shape().as_list()[0]
+
+    def initParticleStates(init_loc, particle_nums, batch_size):
+        """
+        获取粒子的初始状态
+        :param init_loc: 初始位置
+        :return: init_statesparticle_nums
+        """
         init_states = []
         for i in range(batch_size):
-            init_batch_states = tf.tile([init_loc[i]], multiples=[self._particle_nums, 1])
+            init_batch_states = np.tile(init_loc[i], (particle_nums, 1))
             init_states.append(init_batch_states)
-        init_states = tf.convert_to_tensor(init_states)
+        init_states = np.array(init_states)
+        init_states = tf.reshape(init_states, [batch_size, particle_nums, 2])
         return init_states
 
     def saveState(self, sess):
@@ -118,7 +124,7 @@ class PFnetClass(object):
     def buildRnn(self, map_data, ins, init_particle_states):
         batch_size = ins.get_shape().as_list()[0]
         particle_nums = self._particle_nums
-        map_shape = tf.shape(map_data)[1:]
+        map_shape = tf.shape(map_data)[0:]
 
         init_particle_weights = tf.constant(np.log(1.0 / float(particle_nums)),
                                             shape=(batch_size, particle_nums), dtype=tf.float64)
@@ -149,7 +155,7 @@ class PFnetClass(object):
                                                 initial_state=state,
                                                 swap_memory=True,
                                                 time_major=False,
-                                                parallel_iterations=1,
+                                                parallel_iterations=32,
                                                 scope=tf.get_variable_scope())
         particle_states, particle_weights = outputs
         with tf.control_dependencies([particle_states, particle_weights]):
