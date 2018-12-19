@@ -20,10 +20,21 @@ import datetime
 
 def run_training(params):
     """ Run training with the parsed arguments """
-    # 各个数据读取类初始化
 
+    print("Train start,this time the parametre is ："
+          "\nBatch size    \t %s "
+          "\nTime step     \t %s"
+          "\nParticle nums \t %s"
+          "\nLearning Rate \t %s"
+          "\nEpochs        \t %s "
+          "\nStep stddev   \t %s "
+          "\nResample para \t %s"
+          "\nGood Luck!"
+          % (params.batchsize, params.time_step, params.particle_nums, params.learning_rate, params.epochs,
+             params.step_stddev, params.resample_para))
 
     with tf.Graph().as_default():
+        # 各个数据读取类初始化
         trainData = LabelData(params.train_files_path, params.train_ration, params.read_all)
         testData = LabelData(params.test_files_path, params.train_ration, params.read_all)
         mapData = MapData(params.map_files_path)
@@ -49,7 +60,6 @@ def run_training(params):
         # training data and network
         with tf.variable_scope(tf.get_variable_scope(), reuse=False):
             inputs = train_iter.get_next()
-            print(inputs)
             train_brain = PFnetClass(map_data, inputs=inputs[0], labels=inputs[1], parameters=params, is_training=True)
         print("successful train_op")
         # test data and network
@@ -85,24 +95,13 @@ def run_training(params):
 
                     # run training over all samples in an epoch
                     for step_i in tqdm.tqdm(range(num_train_samples)):
-                        sess.run(inputs)
-                        sess.run(test_inputs)
                         _, loss, _,pred,true = sess.run([train_brain._train_op, train_brain._train_loss_op,
                                                train_brain._update_state_op,train_brain._pred_coords,train_brain._true_coords])
 
                         periodic_loss += loss
                         epoch_loss += loss
 
-                        path = params.res_path
-                        now_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                        batch_size = params.batchsize
-
-                        data = np.concatenate([pred,true],2)
-                        for i in range(batch_size):
-                            filename = str(path) + "/" + now_time + "--" + str(i) + '.csv'
-                            np.savetxt(filename, data[i], delimiter=",")
-
-                        # print accumulated loss after every few hundred steps
+                        # print accumulated loss after every few 50 steps
                         if step_i > 0 and (step_i % 50) == 0:
                             tqdm.tqdm.write(
                                 "\nEpoch %d, step %d. Training loss = %f" % (epoch_i + 1, step_i, periodic_loss / 50.0))
@@ -139,8 +138,11 @@ def run_training(params):
 
             finally:
                 saver.save(sess, os.path.join(params.logpath, 'final.chk'))  # dont pass global step
+                coord.request_stop()
 
-            coord.request_stop()
+            coord.join(threads)
+
+
         print("Training done. Model is saved to %s" % (params.logpath))
 
 
