@@ -20,6 +20,17 @@ import datetime
 
 def run_training(params):
     """ Run training with the parsed arguments """
+    print("Train start,this time the parametre is ："
+          "\nBatch size \t %s "
+          "\nTime step \t %s"
+          "\nParticle nums \t %s"
+          "\nLearning Rate \t %s"
+          "\nEpochs \t %s "
+          "\nStep stddev \t %s "
+          "\nResample para \t %s"
+          "\n Good Luck!"
+          % (params.batchsize, params.time_step, params.particle_nums, params.learning_rate, params.epochs,
+             params.step_stddev, params.resample_para))
     # 各个数据读取类初始化
     with tf.Graph().as_default():
         trainData = LabelData(params.train_files_path, params.train_ration, params.read_all)
@@ -40,7 +51,7 @@ def run_training(params):
         test_data = test_data.batch(params.batchsize, drop_remainder=True)
         test_iter = test_data.make_one_shot_iterator()
         map_data = mapData.getMap()
-        
+
         if params.seed is not None:
             tf.set_random_seed(params.seed)
 
@@ -83,8 +94,6 @@ def run_training(params):
 
                     # run training over all samples in an epoch
                     for step_i in tqdm.tqdm(range(num_train_samples)):
-                        sess.run(inputs)
-                        sess.run(test_inputs)
                         _, loss, _, pred, true = sess.run([train_brain._train_op, train_brain._train_loss_op,
                                                            train_brain._update_state_op, train_brain._pred_coords,
                                                            train_brain._true_coords])
