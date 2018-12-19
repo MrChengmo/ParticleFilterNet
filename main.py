@@ -13,6 +13,7 @@ import tqdm, os
 from argument import parse_args
 from DataProcess import LabelData, MapData
 from PFnet import PFnetClass
+import datetime
 import math
 import datetime
 
@@ -20,37 +21,38 @@ import datetime
 def run_training(params):
     """ Run training with the parsed arguments """
     # 各个数据读取类初始化
-    trainData = LabelData(params.train_files_path, params.train_ration, params.read_all)
-    testData = LabelData(params.test_files_path, params.train_ration, params.read_all)
-    mapData = MapData(params.map_files_path)
-
-    num_train_samples = trainData.getBatchNums(params.time_step) / params.batchsize
-    num_train_samples = math.floor(num_train_samples)
-
-    train_data = trainData.getData(params.epochs)
-    train_data = train_data.batch(params.batchsize, drop_remainder=True)
-    train_iter = train_data.make_one_shot_iterator()
-    inputs = train_iter.get_next()
-
-    num_test_samples = testData.getBatchNums(params.time_step) / params.batchsize
-    num_test_samples = math.floor(num_test_samples)
-
-    test_data = testData.getData(params.epochs)
-    test_data = test_data.batch(params.batchsize, drop_remainder=True)
-    test_iter = test_data.make_one_shot_iterator()
-    test_inputs = test_iter.get_next()
-
-    map_data = mapData.getMap()
     with tf.Graph().as_default():
+        trainData = LabelData(params.train_files_path, params.train_ration, params.read_all)
+        testData = LabelData(params.test_files_path, params.train_ration, params.read_all)
+        mapData = MapData(params.map_files_path)
+
+        num_train_samples = trainData.getBatchNums(params.time_step) / params.batchsize
+        num_train_samples = math.floor(num_train_samples)
+
+        train_data = trainData.getData(params.epochs)
+        train_data = train_data.batch(params.batchsize, drop_remainder=True)
+        train_iter = train_data.make_one_shot_iterator()
+
+        num_test_samples = testData.getBatchNums(params.time_step) / params.batchsize
+        num_test_samples = math.floor(num_test_samples)
+
+        test_data = testData.getData(params.epochs)
+        test_data = test_data.batch(params.batchsize, drop_remainder=True)
+        test_iter = test_data.make_one_shot_iterator()
+        map_data = mapData.getMap()
+        
         if params.seed is not None:
             tf.set_random_seed(params.seed)
 
         # training data and network
         with tf.variable_scope(tf.get_variable_scope(), reuse=False):
+            inputs = train_iter.get_next()
+            print(inputs)
             train_brain = PFnetClass(map_data, inputs=inputs[0], labels=inputs[1], parameters=params, is_training=True)
         print("successful train_op")
         # test data and network
         with tf.variable_scope(tf.get_variable_scope(), reuse=True):
+            test_inputs = test_iter.get_next()
             test_brain = PFnetClass(map_data, inputs=test_inputs[0], labels=test_inputs[1], parameters=params,
                                     is_training=False)
         print("successful test_op")
@@ -81,25 +83,40 @@ def run_training(params):
 
                     # run training over all samples in an epoch
                     for step_i in tqdm.tqdm(range(num_train_samples)):
-                        _, loss, _,pred,true = sess.run([train_brain._train_op, train_brain._train_loss_op,
-                                               train_brain._update_state_op,train_brain._pred_coords,train_brain._true_coords])
+                        sess.run(inputs)
+                        sess.run(test_inputs)
+                        _, loss, _, pred, true = sess.run([train_brain._train_op, train_brain._train_loss_op,
+                                                           train_brain._update_state_op, train_brain._pred_coords,
+                                                           train_brain._true_coords])
+
                         periodic_loss += loss
                         epoch_loss += loss
+
+                        path = params.res_path
+                        now_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        batch_size = params.batchsize
+
+                        data = np.concatenate([pred, true], 2)
+                        for i in range(batch_size):
+                            filename = str(path) + "/" + now_time + "--" + str(i) + '.csv'
+                            np.savetxt(filename, data[i], delimiter=",")
 
                         # print accumulated loss after every few hundred steps
                         if step_i > 0 and (step_i % 50) == 0:
                             tqdm.tqdm.write(
-                                "Epoch %d, step %d. Training loss = %f" % (epoch_i + 1, step_i, periodic_loss / 50.0))
+                                "\nEpoch %d, step %d. Training loss = %f" % (epoch_i + 1, step_i, periodic_loss / 50.0))
+
                             periodic_loss = 0.0
                             now_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                             data = np.concatenate([pred, true], 2)
                             for i in range(params.batchsize):
-                                filename = str(params.res_path) + "/" + now_time + "-"+str(epoch_i+1)+"-" + str(i) + '.csv'
+                                filename = str(params.res_path) + "/" + now_time + "-" + str(epoch_i + 1) + "-" + str(
+                                    i) + '.csv'
                                 np.savetxt(filename, data[i], delimiter=",")
 
                     # print the avarage loss over the epoch
                     tqdm.tqdm.write(
-                        "Epoch %d done. Average training loss = %f" % (epoch_i + 1, epoch_loss / num_train_samples))
+                        "\nEpoch %d done. Average training loss = %f" % (epoch_i + 1, epoch_loss / num_train_samples))
 
                     # save model, validate and decrease learning rate after each epoch
                     saver.save(sess, os.path.join(params.logpath, 'model.chk'), global_step=epoch_i + 1)

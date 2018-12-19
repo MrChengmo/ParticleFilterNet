@@ -11,6 +11,7 @@ import numpy as np
 import tensorflow as tf
 import datetime
 from PFcell import PFCellClass
+import datetime
 
 
 class PFnetClass(object):
@@ -40,12 +41,12 @@ class PFnetClass(object):
         self._learning_rate_op = None
 
         self._update_state_op = tf.constant(0)
-
+        self._record_path = parameters.res_path
         self._particle_nums = parameters.particle_nums
 
         self._record_path = parameters.res_path
 
-        init_states = self.initParticleStates(labels[:, 1, :],parameters.particle_nums,parameters.batch_size)
+        init_states = self.initParticleStates(labels[:, 0, :])
         self.build(map_data=map_data, ins=inputs[:, 1:, :], init_particle_states=init_states,
                    labels=labels[:, 1:, :], is_training=is_training)
 
@@ -62,7 +63,6 @@ class PFnetClass(object):
     def load_state(self, sess, save_state):
         return sess.run(self._hidden_states,
                         feed_dict={self._hidden_states[i]: save_state[i] for i in range(len(self._hidden_states))})
-
 
     def initParticleStates(init_loc, particle_nums, batch_size):
         """
@@ -87,12 +87,14 @@ class PFnetClass(object):
                                   savedState[i] for i in range(len(self._hidden_states))})
 
     def buildLoss(self, particle_states, particle_weights, true_states):
-        lin_weights = tf.nn.softmax(particle_weights, dim=-1)
+        lin_weights = tf.nn.softmax(particle_weights, axis=-1)
         true_coords = true_states[:, :, :2]
-        mean_coords = tf.reduce_mean(tf.multiply(
+        mean_coords = tf.reduce_sum(tf.multiply(
             particle_states[:, :, :, :2], lin_weights[:, :, :, None]), axis=2)
+
         self._pred_coords = mean_coords
         self._true_coords = true_coords
+
         coord_diffs = mean_coords - true_coords
         loss_coords = tf.reduce_sum(tf.square(coord_diffs), axis=2)
 
@@ -108,14 +110,13 @@ class PFnetClass(object):
     def buildTrain(self):
         assert self._train_op is None and self._global_step_op is None and self._learning_rate_op is None
 
-        with tf.device("/cpu:0"):
-            self._global_step_op = tf.get_variable(
-                initializer=tf.constant_initializer(0.0), shape=(), trainable=False, name='global_step')
-            self._learning_rate_op = tf.train.exponential_decay(
-                self._parameters.learning_rate, self._global_step_op, decay_steps=1,
-                decay_rate=self._parameters.decay_rate, staircase=True, name="learning_rate")
+        self._global_step_op = tf.get_variable(
+            initializer=tf.constant_initializer(0.0), shape=(), trainable=False, name='global_step')
+        self._learning_rate_op = tf.train.exponential_decay(
+            self._parameters.learning_rate, self._global_step_op, decay_steps=1,
+            decay_rate=self._parameters.decay_rate, staircase=True, name="learning_rate")
 
-            optimizer = tf.train.RMSPropOptimizer(self._learning_rate_op, decay=0.9)
+        optimizer = tf.train.RMSPropOptimizer(self._learning_rate_op, decay=0.9)
         with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
             self._train_op = optimizer.minimize(self._train_loss_op, global_step=None,
                                                 var_list=tf.trainable_variables())
@@ -135,10 +136,9 @@ class PFnetClass(object):
             tf.get_variable("particle_weights", shape=init_particle_weights.get_shape(),
                             dtype=init_particle_weights.dtype, initializer=tf.constant_initializer(0), trainable=False),
         ]
-
         state = (init_particle_states, init_particle_weights)
-        with tf.variable_scope("rnn"):
 
+        with tf.variable_scope("rnn"):
             init_cell = PFCellClass(map_data=tf.zeros(map_shape, dtype=tf.float64),
                                     paramters=self._parameters, batch_size=1, particle_nums=1)
             init_cell(tf.zeros([1, 2], dtype=np.float64),  # inputs
@@ -163,6 +163,3 @@ class PFnetClass(object):
                 *(self._hidden_states[i].assign(state[i]) for i in range(len(self._hidden_states))))
 
         return particle_states, particle_weights
-
-
-

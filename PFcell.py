@@ -54,11 +54,11 @@ class PFCellClass(rnn):
             particle_weights += new_particle_weights
 
             # resample particles
-            new_states, new_weights = self.resampleModel(particle_states, particle_weights,
-                                                         resample_para=self._parameters.resample_para)
+            #new_states, new_weights = self.resampleModel(particle_states, particle_weights,
+                                                         #resample_para=self._parameters.resample_para)
 
-            output = new_states, new_weights
-            state = new_states, new_weights
+            output = new_particle_states, new_particle_weights
+            state = new_particle_states, new_particle_weights
         return output, state
 
     def transitionModel(self, particle_states, ins):
@@ -71,13 +71,13 @@ class PFCellClass(rnn):
             loc_x, loc_y = tf.unstack(particle_states, axis=-1, num=2)
             ins_x, ins_y = tf.unstack(ins, axis=-1, num=2)
             ins_x = tf.tile([ins_x], multiples=[self._particle_nums, 1])
-            ins_x = tf.transpose(ins_x)
+            ins_x = tf.transpose(ins_x* distance_para_x)
             ins_y = tf.tile([ins_y], multiples=[self._particle_nums, 1])
-            ins_y = tf.transpose(ins_y)
+            ins_y = tf.transpose(ins_y* distance_para_y)
             ins_x += tf.to_double(
-                tf.random_normal(loc_x.get_shape(), mean=0.0, stddev=self._parameters.step_stddev) * distance_para_x)
+                tf.random_normal(loc_x.get_shape(), mean=0.0, stddev=self._parameters.step_stddev))
             ins_y += tf.to_double(
-                tf.random_normal(loc_y.get_shape(), mean=0.0, stddev=self._parameters.step_stddev) * distance_para_y)
+                tf.random_normal(loc_y.get_shape(), mean=0.0, stddev=self._parameters.step_stddev))
 
             new_particle_states = tf.stack([loc_x + ins_x, loc_y + ins_y], axis=-1)
         return new_particle_states
@@ -108,7 +108,7 @@ class PFCellClass(rnn):
 
             # normalize
             particle_weights = particle_weights - tf.reduce_logsumexp(particle_weights,
-                                                                      axis=-1, keep_dims=True)
+                                                                      axis=-1, keepdims=True)
 
             uniform_weights = tf.constant(-np.log(num_particles),
                                           shape=(batch_size, num_particles), dtype=tf.float64)
@@ -119,7 +119,7 @@ class PFCellClass(rnn):
                 q_weights = tf.stack([particle_weights + np.log(resample_para),
                                       uniform_weights + np.log(1.0 - resample_para)], axis=-1)
                 q_weights = tf.reduce_logsumexp(q_weights, axis=-1, keep_dims=False)
-                q_weights = q_weights - tf.reduce_logsumexp(q_weights, axis=-1, keep_dims=True)  # normalized
+                q_weights = q_weights - tf.reduce_logsumexp(q_weights, axis=-1, keepdims=True)  # normalized
 
                 particle_weights = particle_weights - q_weights  # this is unnormalized
             else:
