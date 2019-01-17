@@ -31,7 +31,7 @@ def parse_args(args=None):
     p.add('--particle_map_length', type=float, default=100.0, help='the length of particle map')
 
     # PF-net configuration
-    p.add('--particle_nums', type=int, default=30, help='Number of particles in PF-net.')
+    p.add('--particle_nums', type=int, default=25, help='Number of particles in PF-net.')
     p.add('--step_stddev', type=float, default=0.8, help='每行进一步时粒子的分散高斯分布的标准差，人均步长为0.8米')
 
     p.add('--resample', type=str, default='true',
@@ -46,10 +46,10 @@ def parse_args(args=None):
     # training configuration
 
     p.add('--batchsize', type=int, default=1, help='Minibatch size for training. Must be 1 for evaluation.')
-    p.add('--time_step', type=int, default=16, help='Number of foot step which one traj has.')
-    p.add('--learning_rate', type=float, default=0.0001, help='Initial learning rate for training.')
+    p.add('--time_step', type=int, default=19, help='Number of foot step which one traj has.')
+    p.add('--learning_rate', type=float, default=0.0025, help='Initial learning rate for training.')
     p.add('--l2scale', type=float, default=0.0, help='Scaling term for the L2 regularization loss.')
-    p.add('--epochs', metavar='epochs', type=int, default=10, help='Number of epochs for training.')
+    p.add('--epochs', metavar='epochs', type=int, default=50, help='Number of epochs for training.')
     p.add('--decay_step', type=int, default=4, help='Decay the learning rate after every N epochs.')
     p.add('--decay_rate', type=float, default=0.001, help='Rate of decaying the learning rate.')
 

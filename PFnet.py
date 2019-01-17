@@ -46,6 +46,7 @@ class PFnetClass(object):
 
         self._record_path = parameters.res_path
 
+
         init_states = self.initParticleStates(labels[:, 0, :])
         self.build(map_data=map_data, ins=inputs[:, 1:, :], init_particle_states=init_states,
                    labels=labels[:, 1:, :], is_training=is_training)
@@ -64,6 +65,7 @@ class PFnetClass(object):
         return sess.run(self._hidden_states,
                         feed_dict={self._hidden_states[i]: save_state[i] for i in range(len(self._hidden_states))})
 
+
     def initParticleStates(init_loc, particle_nums, batch_size):
         """
         获取粒子的初始状态
@@ -78,14 +80,6 @@ class PFnetClass(object):
         init_states = tf.reshape(init_states, [batch_size, particle_nums, 2])
         return init_states
 
-    def saveState(self, sess):
-        return sess.run(self._hidden_states)
-
-    def loadState(self, sess, savedState):
-        return sess.run(self._hidden_sates,
-                        feed={self._hidden_states[i]:
-                                  savedState[i] for i in range(len(self._hidden_states))})
-
     def buildLoss(self, particle_states, particle_weights, true_states):
         lin_weights = tf.nn.softmax(particle_weights, axis=-1)
         true_coords = true_states[:, :, :2]
@@ -95,9 +89,9 @@ class PFnetClass(object):
         self._pred_coords = mean_coords
         self._true_coords = true_coords
 
-        coord_diffs = mean_coords - true_coords
+        coord_diffs = tf.subtract(true_coords,mean_coords)
         loss_coords = tf.reduce_sum(tf.square(coord_diffs), axis=2)
-
+        loss = tf.reduce_sum(tf.sqrt(loss_coords))
         loss_pred = tf.reduce_mean(loss_coords, name='prediction_loss')
         loss_reg = tf.multiply(tf.losses.get_regularization_loss(),
                                self._parameters.l2scale, name='L2')
@@ -110,11 +104,12 @@ class PFnetClass(object):
     def buildTrain(self):
         assert self._train_op is None and self._global_step_op is None and self._learning_rate_op is None
 
+
         self._global_step_op = tf.get_variable(
-            initializer=tf.constant_initializer(0.0), shape=(), trainable=False, name='global_step')
+                initializer=tf.constant_initializer(0.0), shape=(), trainable=False, name='global_step')
         self._learning_rate_op = tf.train.exponential_decay(
-            self._parameters.learning_rate, self._global_step_op, decay_steps=1,
-            decay_rate=self._parameters.decay_rate, staircase=True, name="learning_rate")
+                self._parameters.learning_rate, self._global_step_op, decay_steps=1,
+                decay_rate=self._parameters.decay_rate, staircase=True, name="learning_rate")
 
         optimizer = tf.train.RMSPropOptimizer(self._learning_rate_op, decay=0.9)
         with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
@@ -139,6 +134,7 @@ class PFnetClass(object):
         state = (init_particle_states, init_particle_weights)
 
         with tf.variable_scope("rnn"):
+
             init_cell = PFCellClass(map_data=tf.zeros(map_shape, dtype=tf.float64),
                                     paramters=self._parameters, batch_size=1, particle_nums=1)
             init_cell(tf.zeros([1, 2], dtype=np.float64),  # inputs
@@ -163,3 +159,4 @@ class PFnetClass(object):
                 *(self._hidden_states[i].assign(state[i]) for i in range(len(self._hidden_states))))
 
         return particle_states, particle_weights
+
