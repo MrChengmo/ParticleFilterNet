@@ -12,7 +12,7 @@ import tensorflow as tf
 from tensorflow.contrib.rnn import RNNCell as rnn
 from tensorflow.contrib import image
 from tensorflow.python.ops import math_ops
-from PFlayer import conv2_layer, locallyconn2_layer, dense_layer
+from PFlayer import cnn,conv2_layer, locallyconn2_layer, dense_layer
 
 
 class PFCellClass(rnn):
@@ -84,7 +84,7 @@ class PFCellClass(rnn):
 
     def obervationModel(self, map_data, old_particle_states, new_particle_states):
         """
-        this model transform the big map to particle maps for each particle,where a particle map 
+        this model transform the big map to particle maps for each particle,where a particle map
         is a local view from the state defined by the particle.And we use Cnn to calc the particle
         weight by particle maps
         """
@@ -92,12 +92,11 @@ class PFCellClass(rnn):
         particle_maps = self.mapTransform(self._map, old_particle_states, new_particle_states)
         particle_maps = tf.reshape(particle_maps, [self._batch_size * self._particle_nums]
                                    + particle_maps.shape.as_list()[2:])
-        map_features = self.mapFeatures(particle_maps)
+        map_features = self.mapFeatures(particle_maps,self._parameters.keep_prob)
 
-        weight_vec = tf.reshape(map_features, [self._batch_size * self._particle_nums, -1])
-        weight_vec = self.vectorFeatures(weight_vec)
-
-        new_particle_weights = tf.reshape(weight_vec, [self._batch_size, self._particle_nums])
+        #weight_vec = tf.reshape(p, [self._batch_size * self._particle_nums, -1])
+        #weight_vec = self.vectorFeatures(weight_vec)
+        new_particle_weights = tf.reshape(map_features, [self._batch_size, self._particle_nums])
         return new_particle_weights
 
     @staticmethod
@@ -312,61 +311,65 @@ class PFCellClass(rnn):
         return max_move
 
     @staticmethod
-    def mapFeatures(particle_maps):
+    def mapFeatures(particle_maps,keep_prob):
         assert particle_maps.get_shape().as_list()[1:3] == [100, 100]
         data_format = 'channels_last'
-
+        classes = [0.0,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0]
+        constant_class = tf.constant(value=classes,dtype=tf.float64,shape=[11,1],name='constant_class')
         with tf.variable_scope("map"):
             x = particle_maps
-            convs = [
-                conv2_layer(
-                    32, (5, 5), activation=None, padding='same', data_format=data_format,
-                    use_bias=True, layer_i=1)(x),
-                conv2_layer(
-                    64, (5, 5), activation=None, padding='same', data_format=data_format,
-                    use_bias=True, layer_i=2)(x),
-                conv2_layer(
-                    32, (5, 5), activation=None, padding='same', data_format=data_format,
-                    use_bias=True, layer_i=3)(x),
-            ]
-            x = tf.concat(convs, axis=-1)
-            x = tf.contrib.layers.layer_norm(x, activation_fn=tf.nn.relu)
+            map_pred = cnn(x,keep_prob=keep_prob )
+            weight = tf.matmul(map_pred,constant_class)
+            tf.Print(weight,message="粒子视图权重")
+            #map_pred = tf.reduce_max(map_pred,axis=1)
+            # convs = [
+            #     conv2_layer(
+            #         32, (5, 5), activation=None, padding='same', data_format=data_format,
+            #         use_bias=True, layer_i=1)(x),
+            #     conv2_layer(
+            #         64, (5, 5), activation=None, padding='same', data_format=data_format,
+            #         use_bias=True, layer_i=2)(x),
+            #     conv2_layer(
+            #         32, (5, 5), activation=None, padding='same', data_format=data_format,
+            #         use_bias=True, layer_i=3)(x),
+            # ]
+            # x = tf.concat(convs, axis=-1)
+            # x = tf.contrib.layers.layer_norm(x, activation_fn=tf.nn.relu)
+            #
+            # x = tf.layers.max_pooling2d(x, pool_size=(3, 3), strides=(2, 2), padding="same")
+            #
+            # convs = [
+            #     conv2_layer(
+            #         4, (3, 3), activation=None, padding='same', data_format=data_format,
+            #         use_bias=True, layer_i=4)(x),
+            #     conv2_layer(
+            #         4, (5, 5), activation=None, padding='same', data_format=data_format,
+            #         use_bias=True, layer_i=5)(x),
+            # ]
+            # x = tf.concat(convs, axis=-1)
+            # x = tf.contrib.layers.layer_norm(x, activation_fn=tf.nn.relu)
+            # x = tf.layers.max_pooling2d(x, pool_size=(3, 3), strides=(2, 2), padding="valid")
+            # x = dense_layer(1, activation=None, use_bias=True, name='fc1')(x)
 
-            x = tf.layers.max_pooling2d(x, pool_size=(3, 3), strides=(2, 2), padding="same")
+        # with tf.variable_scope("fc"):
+        #
+        #     # pad manually to match different kernel sizes
+        #     x_pad1 = tf.pad(x, paddings=tf.constant([[0, 0], [1, 1, ], [1, 1], [0, 0]]))
+        #     convs = [
+        #             locallyconn2_layer(
+        #                 4, (5, 5), activation='relu', padding='valid', data_format=data_format,
+        #                 use_bias=True, layer_i=6)(x),
+        #             locallyconn2_layer(
+        #                 2, (5, 5), activation='relu', padding='valid', data_format=data_format,
+        #                 use_bias=True, layer_i=7)(x_pad1),
+        #     ]
+        #     x = tf.concat(convs, axis=-1)
+        #     x = tf.layers.max_pooling2d(x, pool_size=(3, 3), strides=(2, 2), padding="valid")
+        #     print(x.get_shape().as_list())
+        #     x = dense_layer(1,activation=None,use_bias=True,name='fc1')(x)
+        #     print(x.get_shape().as_list())
 
-            convs = [
-                conv2_layer(
-                    4, (3, 3), activation=None, padding='same', data_format=data_format,
-                    use_bias=True, layer_i=4)(x),
-                conv2_layer(
-                    4, (5, 5), activation=None, padding='same', data_format=data_format,
-                    use_bias=True, layer_i=5)(x),
-            ]
-            x = tf.concat(convs, axis=-1)
-            x = tf.contrib.layers.layer_norm(x, activation_fn=tf.nn.relu)
-            x = tf.layers.max_pooling2d(x, pool_size=(3, 3), strides=(2, 2), padding="valid")
-            x = dense_layer(1, activation=None, use_bias=True, name='fc1')(x)
-        """
-        with tf.variable_scope("fc"):
-
-            # pad manually to match different kernel sizes
-            x_pad1 = tf.pad(x, paddings=tf.constant([[0, 0], [1, 1, ], [1, 1], [0, 0]]))
-            convs = [
-                    locallyconn2_layer(
-                        4, (5, 5), activation='relu', padding='valid', data_format=data_format,
-                        use_bias=True, layer_i=6)(x),
-                    locallyconn2_layer(
-                        2, (5, 5), activation='relu', padding='valid', data_format=data_format,
-                        use_bias=True, layer_i=7)(x_pad1),
-            ]
-            x = tf.concat(convs, axis=-1)
-            x = tf.layers.max_pooling2d(x, pool_size=(3, 3), strides=(2, 2), padding="valid")
-            print(x.get_shape().as_list())
-            x = dense_layer(1,activation=None,use_bias=True,name='fc1')(x)
-            print(x.get_shape().as_list())
-        """
-        return x
-
+        return weight
     @staticmethod
     def vectorFeatures(weight_vector):
         with tf.variable_scope("weight_fc"):

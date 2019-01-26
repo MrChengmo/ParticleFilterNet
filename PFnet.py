@@ -91,8 +91,8 @@ class PFnetClass(object):
 
         coord_diffs = tf.subtract(true_coords,mean_coords)
         loss_coords = tf.reduce_sum(tf.square(coord_diffs), axis=2)
-        loss = tf.reduce_sum(tf.sqrt(loss_coords))
-        loss_pred = tf.reduce_mean(loss_coords, name='prediction_loss')
+        loss_pred = tf.reduce_mean(tf.sqrt(loss_coords),name='prediction_loss')
+        #loss_pred = tf.reduce_mean(loss, name='prediction_loss')
         loss_reg = tf.multiply(tf.losses.get_regularization_loss(),
                                self._parameters.l2scale, name='L2')
         loss_total = tf.add_n([loss_pred, loss_reg], name="training_loss")

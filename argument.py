@@ -14,7 +14,6 @@ def parse_args(args=None):
     "--------------------------------超参数-------------------------------------"
     p = configargparse.ArgParser(default_config_files=[])
 
-
     p.add('--train_files_path', default='train_data/',
           help='Data file(s) for training (csv).')
     p.add('--test_files_path', default='test_data/',
@@ -33,7 +32,7 @@ def parse_args(args=None):
     # PF-net configuration
     p.add('--particle_nums', type=int, default=25, help='Number of particles in PF-net.')
     p.add('--step_stddev', type=float, default=0.8, help='每行进一步时粒子的分散高斯分布的标准差，人均步长为0.8米')
-
+    p.add('--keep_prob', type=float, default=0.8, help='CNN训练时dropout层的保持率')
     p.add('--resample', type=str, default='true',
           help='Resample particles in PF-net. Possible values: true / false.')
     p.add('--resample_para', type=float, default=1.0,
@@ -53,7 +52,6 @@ def parse_args(args=None):
     p.add('--decay_step', type=int, default=4, help='Decay the learning rate after every N epochs.')
     p.add('--decay_rate', type=float, default=0.001, help='Rate of decaying the learning rate.')
 
-
     p.add('--load', type=str, default="", help='Load a previously trained model from a checkpoint file.')
     p.add('--logpath', type=str, default='log/',
           help='Specify path for logs. Makes a new directory under ./log/ if empty (default).')
@@ -63,8 +61,7 @@ def parse_args(args=None):
                'Useful to evaluate with a fixed set of initial particles, which reduces the validation error variance.')
     p.add('--gpu', type=int, default=0, help='Select a gpu on a multi-gpu machine. Defaults to zero.')
 
-
-    p.add('--res_path',type=str,default='res_path/',help='记录预测轨迹与真实轨迹，便于观察效果')
+    p.add('--res_path', type=str, default='res_path/', help='记录预测轨迹与真实轨迹，便于观察效果')
 
     params = p.parse_args(args=args)
 
